@@ -1,0 +1,2186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>ClassBoard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{
+  --board:#14231f; --board-2:#1b2f29; --board-3:#244037; --chalk:#f1efe6; --chalk-dim:#a9b8b0;
+  --marigold:#f2b134; --marigold-ink:#2b1d00; --danger:#ef5b4d; --ok:#5fd08a;
+  --paper:#ffffff; --ink:#1c2321; --line:#d9ded9;
+  --font:'Bricolage Grotesque',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:var(--font);color:var(--chalk);background:var(--board);-webkit-text-size-adjust:100%}
+button{font:inherit;cursor:pointer}
+.hidden{display:none!important}
+:focus-visible{outline:3px solid var(--marigold);outline-offset:2px}
+
+/* ---------- Landing ---------- */
+#landing{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px}
+.landing-wrap{max-width:860px;width:100%}
+.landing-wrap h1{font-size:clamp(2.6rem,7vw,4.6rem);line-height:1;margin:0 0 10px;letter-spacing:-.03em}
+.landing-wrap p.sub{color:var(--chalk-dim);font-size:1.15rem;margin:0 0 36px;max-width:46ch}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:700px){.choices{grid-template-columns:1fr}}
+.choice{background:var(--board-2);border:2px dashed var(--board-3);border-radius:18px;padding:26px}
+.choice h2{margin:0 0 6px;font-size:1.5rem}
+.choice p{margin:0 0 18px;color:var(--chalk-dim)}
+.btn{background:var(--marigold);color:var(--marigold-ink);border:0;border-radius:12px;padding:12px 20px;font-weight:700;font-size:1rem}
+.btn:hover{filter:brightness(1.06)}
+.btn.ghost{background:transparent;color:var(--chalk);border:2px solid var(--board-3)}
+.btn.danger{background:var(--danger);color:#fff}
+.btn:disabled{opacity:.5;cursor:default}
+input.text,textarea.text{width:100%;font:inherit;font-size:1.1rem;padding:12px 14px;border-radius:12px;border:2px solid var(--board-3);background:var(--board);color:var(--chalk)}
+input.text:focus,textarea.text:focus{border-color:var(--marigold);outline:none}
+.row{display:flex;gap:10px}
+
+/* ---------- Teacher ---------- */
+#teacher{height:100%;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:14px;padding:10px 18px;background:var(--board-2);border-bottom:2px solid var(--board-3);flex-wrap:wrap}
+.topbar h1{font-size:1.3rem;margin:0 8px 0 0;letter-spacing:-.02em}
+.chip{background:var(--board);border:2px solid var(--board-3);border-radius:999px;padding:5px 14px;font-weight:700;letter-spacing:.06em}
+.chip small{font-weight:500;color:var(--chalk-dim);letter-spacing:0;margin-right:6px}
+.spacer{flex:1}
+.size-ctl{display:flex;align-items:center;gap:8px;color:var(--chalk-dim);font-size:.9rem}
+.size-ctl input{accent-color:var(--marigold)}
+.topbar .btn{padding:8px 14px;font-size:.92rem}
+
+#grid{flex:1;overflow:auto;padding:18px;display:grid;gap:18px;align-content:start;
+  grid-template-columns:repeat(auto-fill,minmax(var(--tile,320px),1fr))}
+.tile{background:var(--board-2);border:2px solid var(--board-3);border-radius:14px;position:relative;display:flex;flex-direction:column}
+.tile-head{display:flex;align-items:center;gap:8px;padding:8px 8px 8px 12px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--ok);flex:none}
+.tile.offline .dot{background:#777}
+.tile-name{font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-badge{color:#fff;background:var(--danger);font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:999px;animation:pulse 1.2s infinite}
+@keyframes pulse{50%{opacity:.45}}
+.kebab{background:transparent;border:0;color:var(--chalk);font-size:1.3rem;line-height:1;padding:4px 10px;border-radius:8px}
+.kebab:hover{background:var(--board-3)}
+.menu{position:absolute;right:8px;top:44px;z-index:30;background:var(--chalk);color:var(--ink);border-radius:12px;min-width:200px;padding:6px;box-shadow:0 12px 32px rgba(0,0,0,.45)}
+.menu button{display:block;width:100%;text-align:left;background:transparent;border:0;padding:10px 12px;border-radius:8px;font-size:.98rem;color:var(--ink)}
+.menu button:hover{background:#e3e6dd}
+.menu button.danger{color:#b3261e}
+.menu hr{border:0;border-top:1px solid #cfd4c9;margin:4px 0}
+.tile-body{position:relative;background:#fff;margin:0 8px 8px;border-radius:8px;overflow:hidden}
+.tile-body canvas{display:block;width:100%;height:auto;aspect-ratio:4/3}
+.offline-badge{pointer-events:none;position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(20,35,31,.55);color:#fff;font-weight:700}
+.tile.offline .offline-badge{display:flex}
+.tile.pick{outline:4px solid var(--marigold);outline-offset:3px;border-color:var(--marigold)}
+.ds{position:fixed;inset:0;z-index:70;background:var(--board);display:flex;flex-direction:column}
+.ds-head{display:flex;align-items:center;gap:14px;padding:10px 18px;background:var(--board-2);border-bottom:2px solid var(--board-3)}
+.ds-opt{color:var(--chalk-dim);display:flex;gap:6px;align-items:center}
+.ds-tools{margin:10px 16px 0;border-radius:12px;border:1px solid var(--line)}
+.ds-vp{flex:1;min-height:0;position:relative;overflow:hidden;margin:10px 16px 16px;background:#d5d9d2;border-radius:8px}
+.ds-vp canvas{position:absolute;left:0;top:0;transform-origin:0 0;touch-action:none;cursor:crosshair;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.25)}
+.lock-badge{color:var(--marigold-ink);background:var(--marigold);font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:999px}
+.tile.locked{border-color:var(--marigold)}
+.btn.lock-on{background:var(--marigold);color:var(--marigold-ink);border-color:var(--marigold)}
+#lock-overlay{position:absolute;inset:0;z-index:5;background:rgba(20,35,31,.5);display:flex;align-items:center;justify-content:center;padding:20px;touch-action:none;-webkit-user-select:none;user-select:none;cursor:not-allowed}
+.lock-card{background:var(--chalk);color:var(--ink);border:3px solid var(--marigold);border-radius:18px;padding:22px 30px;text-align:center;box-shadow:0 18px 50px rgba(0,0,0,.45);max-width:min(420px,100%)}
+.lock-card .ico{font-size:2.6rem;line-height:1}
+.lock-card h2{margin:6px 0 4px;font-size:1.5rem}
+.lock-card p{margin:0;color:#5b665f}
+.tb-float{position:absolute;z-index:4;left:10px;top:calc(10px + env(safe-area-inset-top));display:flex;gap:6px;opacity:.6}
+.tb-float:hover,.tb-float:focus-within{opacity:1}
+/* iPadOS draws its own round ✕ in the top-left corner in full screen: keep our buttons clear of it */
+@media (pointer:coarse){ #student.fs .tb-float{left:calc(84px + env(safe-area-inset-left)); top:calc(14px + env(safe-area-inset-top))} #student.fs .toolbar{padding-left:calc(84px + env(safe-area-inset-left))} }
+.tb-float .tool{min-height:40px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.tb-float .dot{display:inline-block;margin-left:6px;vertical-align:middle}
+.tb-float.bad .dot{background:var(--danger)}
+.vis-hidden{position:fixed;left:-9999px;width:1px;height:1px;opacity:0}
+.t-timer{position:fixed;left:16px;bottom:16px;z-index:65;display:flex;align-items:center;gap:8px;background:var(--board-2);border:2px solid var(--marigold);color:var(--chalk);border-radius:999px;padding:6px 8px 6px 18px;font-weight:700;font-size:1.5rem;font-variant-numeric:tabular-nums;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.t-timer button{background:var(--board);color:var(--chalk);border:0;border-radius:50%;width:36px;height:36px;font-size:1rem}
+.t-timer.low{border-color:#fb923c}.t-timer.done{background:#b91c1c;border-color:#fecaca;animation:pulse 1s infinite}
+#timer-pill{position:absolute;top:10px;right:12px;z-index:6;pointer-events:none;background:rgba(20,35,31,.9);color:#fff;font-weight:700;font-size:1.5rem;padding:6px 18px;border-radius:999px;font-variant-numeric:tabular-nums}
+#timer-pill.low{background:#c2410c}#timer-pill.paused{background:#475569}#timer-pill.done{background:#dc2626;animation:pulse 1s infinite}
+.gp{position:fixed;top:64px;right:16px;z-index:60;width:300px;background:var(--board-2);border:2px solid var(--board-3);border-radius:16px;padding:16px;box-shadow:0 12px 32px rgba(0,0,0,.45)}
+.gp h3{margin:0 0 10px;display:flex;align-items:center;justify-content:space-between}
+.gp label{display:block;color:var(--chalk-dim);font-size:.85rem;margin:10px 0 4px}
+.gp input[type=range]{width:100%;accent-color:var(--marigold)}
+.gp .seg{display:flex;gap:6px}.gp .seg button,.gp .sw{border:2px solid var(--board-3);background:var(--board);color:var(--chalk);border-radius:10px;padding:6px 10px;font-weight:600}
+.gp .seg button[aria-pressed=true]{background:var(--marigold);color:var(--marigold-ink);border-color:var(--marigold)}
+.gp .sws{display:flex;gap:8px}.gp .sw{width:32px;height:32px;padding:0;border-radius:50%}.gp .sw[aria-pressed=true]{outline:3px solid var(--chalk)}
+.tool.math{background:#fff4d6;border-color:#f2b134}
+.mt{position:fixed;left:0;right:0;bottom:0;z-index:80;background:#fff;color:var(--ink);border-top:3px solid var(--ink);box-shadow:0 -8px 28px rgba(0,0,0,.28);padding:8px 12px calc(10px + env(safe-area-inset-bottom))}
+.mt-head{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.mt-tabs{display:flex;gap:6px}
+.mt-hint{color:#5b665f;font-size:.85rem}
+.mt-items{display:flex;gap:12px;align-items:flex-end;min-height:128px;overflow-x:auto;padding-bottom:4px}
+.mt-item{flex:none;background:#f3f4ef;border:2px solid var(--line);border-radius:12px;padding:8px;touch-action:none;cursor:grab;display:flex;flex-direction:column;align-items:center;gap:4px;-webkit-user-select:none;user-select:none}
+.mt-item span{font-size:.8rem;font-weight:600}
+.mt-ghost{position:fixed;z-index:90;pointer-events:none;transform:translate(-50%,-50%);opacity:.85;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35))}
+.tile.max{position:fixed;inset:0;z-index:50;border-radius:0;border:0;background:var(--board)}
+.tile.max .tile-head{padding:12px 16px;font-size:1.15rem}
+.tile.max .tile-body{flex:1;min-height:0;margin:0 16px 16px;position:relative;overflow:hidden;background:#d5d9d2}
+.tile.max .tile-body canvas{position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;aspect-ratio:auto;touch-action:none;cursor:crosshair;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.25)}
+.tile.max .max-tools{margin:0 16px 10px;border-radius:12px;border:1px solid var(--line)}
+.tile.max .menu{top:52px;right:16px}
+
+.empty{grid-column:1/-1;display:flex;gap:36px;align-items:center;justify-content:center;flex-wrap:wrap;padding:40px 10px}
+.empty h2{margin:0 0 8px;font-size:2rem;letter-spacing:-.02em}
+.empty p{color:var(--chalk-dim);margin:0 0 12px;max-width:34ch}
+.qr-box{background:#fff;padding:14px;border-radius:14px;line-height:0}
+.link-box{font-size:.85rem;color:var(--chalk-dim);word-break:break-all;max-width:34ch;cursor:pointer;text-decoration:underline dotted}
+
+.lobby-view{flex:1;overflow:auto;padding:32px 20px}
+.lobby-card{display:flex;gap:48px;flex-wrap:wrap;align-items:flex-start;justify-content:center;max-width:1100px;margin:0 auto}
+.lobby-qr{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}
+.lobby-qr .code{font-size:2.4rem;font-weight:700;letter-spacing:.14em}
+.lobby-qr .hint{color:var(--chalk-dim);max-width:30ch;margin:0}
+.lobby-side{flex:1;min-width:300px;max-width:560px;display:flex;flex-direction:column;gap:14px}
+.lobby-side h2{margin:0;font-size:2rem;letter-spacing:-.02em}
+.joined-list{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start;min-height:120px;max-height:46vh;overflow:auto;background:var(--board-2);border:2px solid var(--board-3);border-radius:14px;padding:12px}
+.joined-empty{color:var(--chalk-dim);align-self:center;margin:0 auto}
+.joined-chip{display:flex;align-items:center;gap:8px;background:var(--board);border:2px solid var(--board-3);border-radius:999px;padding:6px 8px 6px 14px;font-weight:600}
+.joined-chip.offline{opacity:.5}
+.joined-chip .dot{flex:none}
+.joined-chip button{background:transparent;border:0;color:var(--chalk-dim);width:26px;height:26px;border-radius:50%;font-size:1rem;line-height:1}
+.joined-chip button:hover{background:var(--board-3);color:var(--chalk)}
+.lobby-start{font-size:1.2rem;padding:16px 24px!important}
+#teacher.lobby .needs-session{display:none!important}
+#wait-overlay{position:absolute;inset:0;z-index:30;background:var(--board);color:var(--chalk);display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;touch-action:none;-webkit-user-select:none;user-select:none}
+#wait-overlay h2{font-size:2rem;margin:0 0 8px}
+#wait-overlay p{margin:0;color:var(--chalk-dim);font-size:1.1rem}
+
+/* ---------- Modals ---------- */
+.modal{position:fixed;inset:0;background:rgba(5,12,10,.7);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-card{background:var(--board-2);border:2px solid var(--board-3);border-radius:18px;padding:24px;width:min(520px,100%)}
+.modal-card h3{margin:0 0 14px;font-size:1.3rem}
+.modal-card .row{justify-content:flex-end;margin-top:16px}
+.qr-big{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.qr-big .code{font-size:2.6rem;font-weight:700;letter-spacing:.14em}
+img.bg-prev{display:block;width:100%;max-height:42vh;object-fit:contain;background:#fff;border-radius:10px}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--chalk);color:var(--ink);padding:10px 18px;border-radius:999px;font-weight:600;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.4);max-width:90vw}
+
+/* ---------- Student ---------- */
+#student{position:fixed;inset:0;background:#e9ece6;color:var(--ink);display:flex;flex-direction:column;overscroll-behavior:none}
+#join{position:fixed;inset:0;background:var(--board);display:flex;align-items:center;justify-content:center;padding:24px;z-index:20}
+#join .choice{width:min(460px,100%)}
+#join-err{color:var(--danger);min-height:1.4em;margin:10px 0 0}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;padding:8px 12px;background:#fff;border-bottom:1px solid var(--line);padding-top:max(8px,env(safe-area-inset-top))}
+.tb-inner{display:contents}
+.toolbar{color:var(--ink)}
+.group{display:flex;gap:6px;align-items:center}
+.zl{min-width:3.4em;text-align:center;font-weight:600;font-size:.9rem}
+.tool{border:2px solid var(--line);background:#fff;color:var(--ink);border-radius:12px;padding:6px 10px;font-weight:600;font-size:.92rem;min-height:42px;touch-action:manipulation}
+.tool[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.tool.sm{padding:8px 10px}
+.swatch{width:32px;height:32px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2px var(--line);padding:0;touch-action:manipulation}
+.swatch[aria-pressed="true"]{box-shadow:0 0 0 3px var(--ink)}
+input[type=color]{width:40px;height:40px;border:0;padding:0;background:none;border-radius:50%}
+.size{display:flex;align-items:center;gap:8px;font-size:.9rem}
+.size input{width:110px;accent-color:var(--ink)}
+.status{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:.9rem;color:#4b5752}
+.status .dot{background:var(--ok)}
+.status.bad .dot{background:var(--danger)}
+#stage{flex:1;min-height:0;position:relative;overflow:hidden;background:#d5d9d2}
+#sc{position:absolute;left:0;top:0;transform-origin:0 0;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.18);touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:crosshair}
+.msg .open{margin-top:12px}
+.ref-list{display:flex;flex-direction:column;gap:10px;max-height:50vh;overflow:auto}
+.ref-row{display:flex;align-items:center;gap:12px}
+.ref-row img{width:72px;height:54px;object-fit:cover;border-radius:6px;background:#fff}
+.ref-row span{flex:1;color:var(--chalk-dim)}
+#msgs{position:fixed;inset:0;z-index:60;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px}
+.msg{pointer-events:auto;background:var(--chalk);color:var(--ink);border-radius:18px;padding:22px 56px 22px 24px;width:min(560px,100%);position:relative;box-shadow:0 18px 50px rgba(0,0,0,.45);font-size:1.25rem;border:3px solid var(--marigold)}
+.msg small{display:block;color:#5b665f;font-size:.8rem;margin-bottom:4px}
+.msg .x{position:absolute;top:10px;right:10px;width:44px;height:44px;border-radius:50%;border:0;background:var(--ink);color:#fff;font-size:1.4rem;line-height:1}
+#removed{position:fixed;inset:0;z-index:90;background:var(--board);color:var(--chalk);display:flex;align-items:center;justify-content:center;text-align:center;padding:30px}
+#removed h2{font-size:2rem;margin:0 0 8px}
+/* ---------- unlimited canvas ---------- */
+#sc.inf,.tile.max .tile-body canvas.inf{box-shadow:none}
+.tool.chk{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.tool.chk input{width:20px;height:20px;margin:0;accent-color:var(--ink);cursor:pointer}
+.inf-badge{color:var(--ink);background:var(--chalk);font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:999px}
+</style>
+<style>.hubback{position:fixed;top:14px;left:14px;z-index:60;display:inline-flex;align-items:center;gap:.45em;padding:.5em 1em;border-radius:999px;background:rgba(0,0,0,.45);color:#fff;text-decoration:none;font:600 .95rem system-ui,-apple-system,"Segoe UI",sans-serif;border:2px solid rgba(255,255,255,.28);backdrop-filter:blur(8px);transition:transform .15s,background .2s}.hubback:hover{transform:translateX(-3px) scale(1.05);background:rgba(0,0,0,.65)}</style>
+</head>
+<body>
+
+<!-- ======================= LANDING ======================= -->
+<div id="landing" class="hidden">
+<a class="hubback" href="../index.html" title="Back to Class HQ">🏠 Class HQ</a>
+
+  <div class="landing-wrap">
+    <h1>ClassBoard</h1>
+    <p class="sub">Every student gets a whiteboard. You see all of them at once.</p>
+    <div class="choices">
+      <div class="choice">
+        <h2>I'm the teacher</h2>
+        <p>Open a room and show the QR code to your class.</p>
+        <button class="btn" id="btn-teacher">Open teacher hub</button>
+      </div>
+      <div class="choice">
+        <h2>I'm a student</h2>
+        <p>Scan your teacher's QR code, or type the room code.</p>
+        <div class="row">
+          <input class="text" id="code-in" placeholder="Room code" maxlength="6" autocapitalize="characters" autocomplete="off" aria-label="Room code">
+          <button class="btn" id="btn-code">Join</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= TEACHER ======================= -->
+<div id="teacher" class="hidden">
+  <div class="topbar">
+    <h1>ClassBoard</h1>
+    <div class="chip hidden" id="room-chip"><small>Room</small><span id="room-code"></span></div>
+    <button class="btn ghost hidden needs-session" id="btn-qr">Show QR code</button>
+    <button class="btn hidden needs-session" id="btn-random">🎲 Random screen</button>
+    <button class="btn ghost hidden needs-session" id="btn-tab">🖼️ Send image as tab</button>
+    <input type="file" id="tab-file" accept="image/*" class="hidden">
+    <button class="btn ghost hidden needs-session" id="btn-lock">🔒 Lock all</button>
+    <button class="btn ghost hidden needs-session" id="btn-clearall">🧹 Clear all screens</button>
+    <button class="btn ghost hidden needs-session" id="btn-timer">⏱ Timer</button>
+    <button class="btn ghost hidden needs-session" id="btn-grid">▦ Grid</button>
+    <button class="btn ghost hidden needs-session" id="btn-draw">✏️ Draw &amp; send</button>
+    <button class="btn ghost hidden needs-session" id="btn-bg">Set background</button>
+    <button class="btn ghost hidden needs-session" id="btn-bg-off">Remove background</button>
+    <input type="file" id="bg-file" accept="image/*" class="hidden">
+    <span class="chip hidden" id="count-chip">0 students</span>
+    <div class="spacer"></div>
+    <label class="size-ctl hidden needs-session" id="size-ctl">Screen size
+      <input type="range" id="tile-size" min="200" max="560" value="320">
+    </label>
+    <button class="btn danger hidden" id="btn-end">End room</button>
+  </div>
+  <div id="lobby" class="lobby-view hidden">
+    <div class="lobby-card">
+      <div class="lobby-qr">
+        <div class="qr-box" id="lobby-qr"></div>
+        <div class="code" id="lobby-code"></div>
+        <p class="hint">Scan with the iPad camera, or go to the link and enter the room code.</p>
+        <div class="link-box" id="lobby-link" title="Click to copy"></div>
+      </div>
+      <div class="lobby-side">
+        <h2 id="lobby-title">Waiting for students</h2>
+        <div class="joined-list" id="joined-list" aria-live="polite"></div>
+        <button class="btn lobby-start" id="btn-start" disabled>Start session</button>
+        <p class="hint" style="color:var(--chalk-dim);margin:0">The QR code stays up until you press Start. Students who join now will wait on a holding screen.</p>
+      </div>
+    </div>
+  </div>
+  <div id="grid">
+    <div class="empty" id="teacher-start">
+      <div>
+        <h2 id="start-title">Starting room…</h2>
+        <p id="start-sub">Connecting to the signalling server.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= STUDENT ======================= -->
+<div id="student" class="hidden">
+  <div class="toolbar">
+    <div id="tb" class="tb-inner"></div>
+    <button class="tool sm hidden" id="btn-refs">📎 Images</button>
+    <button class="tool sm hidden" id="btn-fs" aria-label="Full screen">⛶ Full screen</button>
+    <button class="tool sm" id="btn-shot" aria-label="Screenshot">📸 Screenshot</button>
+    <button class="tool sm" id="btn-hide-tb" aria-label="Hide toolbar">▲ Hide toolbar</button>
+    <div class="status" id="status"><span class="dot"></span><span id="status-text">Connecting…</span></div>
+  </div>
+  <div id="stage"><canvas id="sc"></canvas>
+    <div id="timer-pill" class="hidden"></div></div>
+  <div id="tb-float" class="tb-float hidden"><button class="tool" id="fl-show" aria-label="Show toolbar">▼ Tools<span class="dot"></span></button><button class="tool" id="fl-shot" aria-label="Screenshot">📸</button><button class="tool hidden" id="fl-fs" aria-label="Full screen">⛶</button></div>
+  <div id="msgs"></div>
+  <div id="wait-overlay" class="hidden"><div><h2>You’re in! 🎉</h2><p>Waiting for your teacher to start the session…</p></div></div>
+  <div id="lock-overlay" class="hidden" role="alertdialog" aria-live="assertive" aria-label="Screen locked"><div class="lock-card"><div class="ico">🔒</div><h2>Screen locked</h2><p>Your teacher has locked your whiteboard. Please wait.</p></div></div>
+</div>
+<div id="join" class="hidden">
+  <div class="choice">
+    <h2>Join the class</h2>
+    <p>Room <strong id="join-room"></strong></p>
+    <input class="text" id="name-in" placeholder="Your name" maxlength="24" autocomplete="off" aria-label="Your name">
+    <p id="join-err"></p>
+    <button class="btn" id="btn-join" style="width:100%">Join whiteboard</button>
+  </div>
+</div>
+<div id="removed" class="hidden"><div><h2>You've been removed from the room</h2><p>Ask your teacher to let you back in, then scan the QR code again.</p></div></div>
+<div id="t-timer" class="t-timer hidden"><span id="t-timer-text"></span><button id="t-timer-pause" aria-label="Pause or resume timer">⏸</button><button id="t-timer-stop" aria-label="Stop timer">✕</button></div>
+<input type="file" id="photo-in" accept="image/*" class="vis-hidden" aria-hidden="true" tabindex="-1">
+<div id="toast" class="hidden"></div>
+
+<script>
+/* =====================================================================
+   CONFIG
+   Uses the free public PeerJS cloud server for the handshake only.
+   After that, drawings travel directly between devices (WebRTC).
+   If your school network blocks peer-to-peer, add a TURN server below.
+   ===================================================================== */
+const PEER_OPTS = {
+  // host:'your-peerjs-server.example.com', port:443, path:'/', secure:true,   // self-hosted PeerServer
+  config: {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+      // , { urls:'turn:your.turn.server:3478', username:'user', credential:'pass' }
+    ]
+  }
+};
+const ID_PREFIX = 'classboard-v1-';
+const W = 1600, H = 1200;           // logical whiteboard size (4:3, matches iPad)
+const COLORS = ['#111111','#6b7280','#ef4444','#f97316','#eab308','#22c55e','#14b8a6','#3b82f6','#6366f1','#a855f7','#ec4899','#92400e'];
+
+/* ---------------- shared helpers ---------------- */
+const $ = id => document.getElementById(id);
+function show(id){ $(id).classList.remove('hidden'); }
+function hide(id){ $(id).classList.add('hidden'); }
+function toast(t, ms=3200){
+  const el = $('toast'); el.textContent = t; el.classList.remove('hidden');
+  clearTimeout(toast._t); toast._t = setTimeout(()=>el.classList.add('hidden'), ms);
+}
+function rid(n=8){ const a='abcdefghjkmnpqrstuvwxyz23456789'; let s=''; for(let i=0;i<n;i++) s+=a[Math.floor(Math.random()*a.length)]; return s; }
+function roomCode(){ const a='ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<6;i++) s+=a[Math.floor(Math.random()*a.length)]; return s; }
+
+/* Draw one item (pen stroke, eraser stroke or shape) onto a context */
+function drawItem(ctx, it){
+  ctx.save();
+  ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineWidth=it.size; ctx.strokeStyle=it.color; ctx.fillStyle=it.color;
+  if(it.eraser) ctx.globalCompositeOperation='destination-out';   // erases ink only, never the background image
+  if(it.kind==='pen'){
+    const p=it.pts;
+    if(p.length===1){ ctx.beginPath(); ctx.arc(p[0][0],p[0][1],it.size/2,0,Math.PI*2); ctx.fill(); }
+    else if(p.length>1){ ctx.beginPath(); ctx.moveTo(p[0][0],p[0][1]); for(let i=1;i<p.length;i++) ctx.lineTo(p[i][0],p[i][1]); ctx.stroke(); }
+  } else if(it.kind==='line'){
+    ctx.beginPath(); ctx.moveTo(it.x1,it.y1); ctx.lineTo(it.x2,it.y2); ctx.stroke();
+  } else if(it.kind==='rect'){
+    ctx.beginPath(); ctx.rect(Math.min(it.x1,it.x2),Math.min(it.y1,it.y2),Math.abs(it.x2-it.x1),Math.abs(it.y2-it.y1));
+    it.fill ? ctx.fill() : ctx.stroke();
+  } else if(it.kind==='circle'){
+    ctx.beginPath(); ctx.ellipse((it.x1+it.x2)/2,(it.y1+it.y2)/2,Math.abs(it.x2-it.x1)/2,Math.abs(it.y2-it.y1)/2,0,0,Math.PI*2);
+    it.fill ? ctx.fill() : ctx.stroke();
+  } else if(it.kind==='math'){
+    drawMath(ctx,it);
+  } else if(it.kind==='text'){
+    const fs=it.size; ctx.font='600 '+fs+'px Arial, Helvetica, sans-serif'; ctx.textBaseline='top';
+    String(it.text||'').slice(0,500).split('\n').forEach((ln,i)=>ctx.fillText(ln,it.x1,it.y1+i*fs*1.25));
+  }
+  ctx.restore();
+}
+/* Draw only the newest segment(s) of a pen stroke (fast path) */
+function drawPenTail(ctx, it, from){
+  const p=it.pts; if(p.length<2 || from>=p.length) return;
+  ctx.save();
+  ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineWidth=it.size; ctx.strokeStyle=it.color;
+  if(it.eraser) ctx.globalCompositeOperation='destination-out';
+  const f=Math.max(1,from);
+  ctx.beginPath(); ctx.moveTo(p[f-1][0],p[f-1][1]);
+  for(let i=f;i<p.length;i++) ctx.lineTo(p[i][0],p[i][1]);
+  ctx.stroke(); ctx.restore();
+}
+
+/* ---------- maths manipulatives ---------- */
+const NUMICON_COL=[null,'#e9742b','#f3c623','#7cc243','#e0457b','#4aa3df','#8e5bb5','#b4b7c2','#e9553f','#2f9e8f','#7a4f2b'];
+const TOKEN_COL={1:['#e5484d','#fff'],10:['#f2994a','#2b1700'],100:['#f2c94c','#2b2200'],1000:['#6fcf97','#07301a'],10000:['#2d9cdb','#fff'],100000:['#9b51e0','#fff'],1000000:['#4f4f4f','#fff']};
+function mathDims(it){
+  switch(it.type){
+    case 'numicon': return { w:(it.val===1?1:2)*60, h:Math.ceil(it.val/2)*60 };
+    case 'token': return { w:110, h:110 };
+    case 'ones': return { w:40, h:40 };
+    case 'tens': return { w:40, h:400 };
+    case 'hundreds': return { w:400, h:400 };
+    case 'protractor': return { w:700, h:400 };
+  }
+  return { w:100, h:100 };
+}
+function drawCells(ctx,x0,y0,nx,ny,u,fill){
+  ctx.fillStyle=fill; ctx.fillRect(x0,y0,nx*u,ny*u);
+  ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.lineWidth=2;
+  for(let i=0;i<=nx;i++){ ctx.beginPath(); ctx.moveTo(x0+i*u,y0); ctx.lineTo(x0+i*u,y0+ny*u); ctx.stroke(); }
+  for(let j=0;j<=ny;j++){ ctx.beginPath(); ctx.moveTo(x0,y0+j*u); ctx.lineTo(x0+nx*u,y0+j*u); ctx.stroke(); }
+  ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.lineWidth=4; ctx.strokeRect(x0,y0,nx*u,ny*u);
+}
+function drawProtractor(ctx){
+  const Ro=350, py=150, PI=Math.PI;
+  ctx.beginPath(); ctx.moveTo(-Ro,py+50); ctx.lineTo(-Ro,py); ctx.arc(0,py,Ro,PI,2*PI); ctx.lineTo(Ro,py+50); ctx.closePath();
+  ctx.fillStyle='rgba(120,190,255,0.30)'; ctx.fill();
+  ctx.strokeStyle='rgba(20,70,140,0.9)'; ctx.lineWidth=3; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-Ro,py); ctx.lineTo(Ro,py); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0,py,110,PI,2*PI); ctx.lineWidth=2; ctx.stroke();
+  for(let a=0;a<=180;a++){
+    const th=a*PI/180, cx=Math.cos(th), sy=-Math.sin(th), len=a%10===0?34:a%5===0?24:14;
+    ctx.beginPath(); ctx.moveTo(cx*Ro,py+sy*Ro); ctx.lineTo(cx*(Ro-len),py+sy*(Ro-len));
+    ctx.lineWidth=a%10===0?2.5:1.5; ctx.stroke();
+  }
+  ctx.font='600 20px Arial, Helvetica, sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  for(let a=0;a<=180;a+=10){
+    const th=a*PI/180, cx=Math.cos(th), sy=-Math.sin(th);
+    [[Ro-58,a,'rgba(10,50,110,.95)'],[Ro-86,180-a,'rgba(140,40,40,.95)']].forEach(([r,v,col])=>{
+      ctx.save(); ctx.translate(cx*r,py+sy*r); ctx.rotate(PI/2-th); ctx.fillStyle=col; ctx.fillText(String(v),0,0); ctx.restore();
+    });
+  }
+  ctx.strokeStyle='rgba(20,70,140,0.9)'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(-16,py); ctx.lineTo(16,py); ctx.moveTo(0,py-16); ctx.lineTo(0,py+16); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0,py,6,0,2*PI); ctx.stroke();
+}
+function drawMath(ctx,it){
+  const d=mathDims(it); ctx.save();
+  ctx.translate(it.x,it.y); ctx.rotate(it.rot||0); const sc=it.sc||1; ctx.scale(sc,sc);
+  ctx.lineJoin='round'; ctx.lineCap='round';
+  const x0=-d.w/2, y0=-d.h/2;
+  if(it.type==='numicon'){
+    const n=it.val, cols=n===1?1:2, rows=Math.ceil(n/2), col=NUMICON_COL[n]||'#999';
+    const has=(c,r)=> r>=0&&r<rows&&c>=0&&c<cols&&!(n%2===1&&n>1&&r===rows-1&&c===1);
+    ctx.fillStyle=col;
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) if(has(c,r)) ctx.fillRect(x0+c*60-.5,y0+r*60-.5,61,61);
+    ctx.strokeStyle='rgba(0,0,0,.55)'; ctx.lineWidth=4;
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){ if(!has(c,r)) continue;
+      const x=x0+c*60, y=y0+r*60; ctx.beginPath();
+      if(!has(c-1,r)){ ctx.moveTo(x,y); ctx.lineTo(x,y+60); }
+      if(!has(c+1,r)){ ctx.moveTo(x+60,y); ctx.lineTo(x+60,y+60); }
+      if(!has(c,r-1)){ ctx.moveTo(x,y); ctx.lineTo(x+60,y); }
+      if(!has(c,r+1)){ ctx.moveTo(x,y+60); ctx.lineTo(x+60,y+60); }
+      ctx.stroke();
+    }
+    for(let i=0;i<n;i++){
+      const r=Math.floor(i/2), c=n===1?0:i%2, cx=x0+c*60+30, cy=y0+r*60+30;
+      ctx.fillStyle='rgba(0,0,0,.3)'; ctx.beginPath(); ctx.arc(cx,cy,17,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,.35)'; ctx.beginPath(); ctx.arc(cx-2,cy-2,13,0,Math.PI*2); ctx.fill();
+    }
+  } else if(it.type==='token'){
+    const [bg,fg]=TOKEN_COL[it.val]||['#888','#fff'];
+    ctx.fillStyle=bg; ctx.beginPath(); ctx.arc(0,0,55,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.45)'; ctx.lineWidth=5; ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(0,0,45,0,Math.PI*2); ctx.stroke();
+    const t=String(it.val), fs=Math.min(40,84/(t.length*0.62));
+    ctx.fillStyle=fg; ctx.font='700 '+fs+'px Arial, Helvetica, sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(t,0,2);
+  } else if(it.type==='ones')     drawCells(ctx,x0,y0,1,1,40,'#f2c94c');
+  else if(it.type==='tens')       drawCells(ctx,x0,y0,1,10,40,'#5cc8a4');
+  else if(it.type==='hundreds')   drawCells(ctx,x0,y0,10,10,40,'#79aef2');
+  else if(it.type==='protractor') drawProtractor(ctx);
+  ctx.restore();
+}
+function hitMath(it,x,y,tol){
+  const d=mathDims(it), sc=it.sc||1, r=it.rot||0, dx=x-it.x, dy=y-it.y, c=Math.cos(-r), s=Math.sin(-r);
+  const lx=(dx*c-dy*s)/sc, ly=(dx*s+dy*c)/sc, t=tol/sc;
+  if(Math.abs(lx)>d.w/2+t || Math.abs(ly)>d.h/2+t) return false;
+  if(it.type==='protractor') return Math.hypot(lx,ly-150)<=350+t && ly<=200+t;
+  if(it.type==='token') return Math.hypot(lx,ly)<=55+t;
+  if(it.type==='numicon' && it.val>1 && it.val%2===1){
+    const rows=Math.ceil(it.val/2), col=Math.min(1,Math.max(0,Math.floor((lx+d.w/2)/60))), row=Math.min(rows-1,Math.max(0,Math.floor((ly+d.h/2)/60)));
+    if(row===rows-1 && col===1) return false;
+  }
+  return true;
+}
+function selOf(it){ const d=mathDims(it), sc=it.sc||1; return { math:true, cx:it.x, cy:it.y, rot:it.rot||0, w:d.w*sc, h:d.h*sc }; }
+function selFor(it){ if(it.kind==='math') return selOf(it); const b=bboxOf(it); return it.kind==='text'?{text:true,x:b.x,y:b.y,w:b.w,h:b.h}:b; }
+function hitTextHandle(it,x,y,hs=1){ const b=textBox(it); return Math.hypot(x-(b.x+b.w),y-(b.y+b.h))<=44*hs; }
+function hitHandle(it,x,y,hs=1){
+  const sl=selOf(it), r=sl.rot, dx=x-sl.cx, dy=y-sl.cy, c=Math.cos(-r), s=Math.sin(-r);
+  const lx=dx*c-dy*s, ly=dx*s+dy*c, T=44*hs;
+  if(Math.hypot(lx-sl.w/2,ly+sl.h/2)<=T) return 'del';
+  if(Math.hypot(lx,ly+sl.h/2+60*hs)<=T) return 'rot';
+  if(Math.hypot(lx-sl.w/2,ly-sl.h/2)<=T) return 'size';
+  return null;
+}
+/* hs = how much to enlarge the handles so they stay the same size on screen when the unlimited canvas is zoomed */
+function drawSelection(c,sel,hs){
+  hs=hs||1; if(hs===1){ drawSelectionBase(c,sel); return; }
+  c.save();
+  if(sel.math){ c.translate(sel.cx,sel.cy); c.rotate(sel.rot); c.scale(hs,hs); drawSelectionBase(c,{math:true,cx:0,cy:0,rot:0,w:sel.w/hs,h:sel.h/hs}); }
+  else { c.translate(sel.x,sel.y); c.scale(hs,hs); drawSelectionBase(c,{text:sel.text,x:0,y:0,w:sel.w/hs,h:sel.h/hs}); }
+  c.restore();
+}
+function drawSelectionBase(c,sel){
+  c.save(); c.strokeStyle='#3b82f6'; c.lineWidth=4;
+  const knob=(x,y,col,icon)=>{
+    c.save(); c.translate(x,y); c.fillStyle=col; c.strokeStyle='#fff'; c.lineWidth=4;
+    c.beginPath(); c.arc(0,0,26,0,Math.PI*2); c.fill(); c.stroke();
+    c.strokeStyle='#fff'; c.fillStyle='#fff'; c.lineWidth=4; c.lineCap='round'; c.beginPath();
+    if(icon==='x'){ c.moveTo(-9,-9); c.lineTo(9,9); c.moveTo(9,-9); c.lineTo(-9,9); c.stroke(); }
+    else if(icon==='size'){ c.moveTo(-9,9); c.lineTo(9,-9); c.moveTo(9,-9); c.lineTo(9,0); c.moveTo(9,-9); c.lineTo(0,-9); c.moveTo(-9,9); c.lineTo(-9,0); c.moveTo(-9,9); c.lineTo(0,9); c.stroke(); }
+    else { c.arc(0,0,11,Math.PI*0.2,Math.PI*1.7); c.stroke(); c.beginPath(); c.moveTo(11*Math.cos(Math.PI*1.7)-8,11*Math.sin(Math.PI*1.7)-2); c.lineTo(11*Math.cos(Math.PI*1.7)+7,11*Math.sin(Math.PI*1.7)-3); c.lineTo(11*Math.cos(Math.PI*1.7)+1,11*Math.sin(Math.PI*1.7)+9); c.closePath(); c.fill(); }
+    c.restore();
+  };
+  if(!sel.math){ c.setLineDash([16,10]); c.strokeRect(sel.x,sel.y,sel.w,sel.h); c.setLineDash([]); if(sel.text) knob(sel.x+sel.w,sel.y+sel.h,'#3b82f6','size'); c.restore(); return; }
+  c.translate(sel.cx,sel.cy); c.rotate(sel.rot);
+  c.setLineDash([16,10]); c.strokeRect(-sel.w/2,-sel.h/2,sel.w,sel.h); c.setLineDash([]);
+  c.beginPath(); c.moveTo(0,-sel.h/2); c.lineTo(0,-sel.h/2-34); c.stroke();
+  knob(0,-sel.h/2-60,'#3b82f6','rot'); knob(sel.w/2,sel.h/2,'#3b82f6','size'); knob(sel.w/2,-sel.h/2,'#ef4444','x');
+  c.restore();
+}
+
+/* ---------- shared: time, beep, grid ---------- */
+function fmtTime(ms){ const t=Math.ceil(ms/1000), m=Math.floor(t/60); return String(m).padStart(2,'0')+':'+String(t%60).padStart(2,'0'); }
+function beep(){
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+    const a=beep.ctx||(beep.ctx=new AC()); if(a.state==='suspended') a.resume();
+    [0,.28,.56].forEach(d=>{ const o=a.createOscillator(), g=a.createGain(); o.frequency.value=880; g.gain.value=.15; o.connect(g); g.connect(a.destination); o.start(a.currentTime+d); o.stop(a.currentTime+d+.16); });
+  }catch(e){}
+}
+function cleanGrid(c){
+  if(!c || typeof c!=='object') return null;
+  return { on:!!c.on, type:['square','lines','dots'].includes(c.type)?c.type:'square',
+    size:Math.min(200,Math.max(12,+c.size||40)), alpha:Math.min(1,Math.max(.05,+c.alpha||.35)),
+    major:[0,5,10].includes(+c.major)?+c.major:0, color:/^#[0-9a-f]{6}$/i.test(c.color)?c.color:'#3b82f6',
+    axes:['full','quarter'].includes(c.axes)?c.axes:'none' };
+}
+/* Where grid line 0 sits. Ordinary grids start at the top-left corner. Coordinate graphs put (0,0) on a grid crossing:
+   'full' = middle of the board (all four quadrants), 'quarter' = bottom-left with a margin for the number labels. */
+function gridOrigin(g){
+  const u=g.size;
+  if(g.axes==='full') return {x:Math.round(W/2/u)*u, y:Math.round(H/2/u)*u};
+  if(g.axes==='quarter') return {x:Math.max(2,Math.ceil(70/u))*u, y:Math.floor((H-70)/u)*u};
+  return {x:0,y:0};
+}
+/* nearest grid crossing, used by the students' "Snap to grid" button */
+function snapPt(g,p){
+  const o=gridOrigin(g), u=g.size;
+  return [o.x+Math.round((p[0]-o.x)/u)*u, o.y+Math.round((p[1]-o.y)/u)*u];
+}
+const _gridCache={};
+function gridCanvas(g){
+  const key=[g.type,g.size,g.color,g.alpha,g.major,g.axes].join('|');
+  if(_gridCache.key===key) return _gridCache.c;
+  const c=document.createElement('canvas'); c.width=W; c.height=H; const x=c.getContext('2d');
+  x.strokeStyle=g.color; x.fillStyle=g.color; x.lineCap='butt';
+  const u=g.size, o=gridOrigin(g), coord=g.axes!=='none';
+  if(coord){ drawCoordGrid(x,g,o); _gridCache.key=key; _gridCache.c=c; return c; }
+  if(g.type==='dots'){
+    x.globalAlpha=Math.min(1,g.alpha+.3);
+    for(let i=0;i*u<=W;i++) for(let j=0;j*u<=H;j++){
+      const big=g.major && i%g.major===0 && j%g.major===0;
+      x.beginPath(); x.arc(i*u,j*u,big?5:3,0,Math.PI*2); x.fill();
+    }
+  } else {
+    for(const major of [false,true]){
+      if(major && !g.major) continue;
+      x.beginPath();
+      if(g.type==='square') for(let i=0;i*u<=W;i++){ if(!!(g.major&&i%g.major===0)===major){ x.moveTo(i*u+.5,0); x.lineTo(i*u+.5,H); } }
+      for(let j=0;j*u<=H;j++){ if(!!(g.major&&j%g.major===0)===major){ x.moveTo(0,j*u+.5); x.lineTo(W,j*u+.5); } }
+      x.lineWidth=major?3:1.6; x.globalAlpha=major?Math.min(1,g.alpha+.3):g.alpha; x.stroke();
+    }
+  }
+  _gridCache.key=key; _gridCache.c=c; return c;
+}
+/* Coordinate graph: a square grid with labelled x/y axes on top. 'full' shows negatives too; 'quarter' is positives only. */
+function drawCoordGrid(x,g,o){
+  const u=g.size, full=g.axes==='full';
+  const xMin=full?0:o.x, yMax=full?H:o.y;            // quarter graph: grid only in the top-right quadrant
+  const nxL=full?Math.floor(o.x/u):0, nxR=Math.floor((W-o.x)/u);
+  const nyU=Math.floor(o.y/u), nyD=full?Math.floor((H-o.y)/u):0;
+  const left=o.x-nxL*u, right=o.x+nxR*u, top=o.y-nyU*u, bottom=o.y+nyD*u;
+  // grid squares (darker every 5 or 10 counted from the origin)
+  for(const major of [false,true]){
+    if(major && !g.major) continue;
+    x.beginPath();
+    for(let i=-nxL;i<=nxR;i++){ if(!!(g.major&&i%g.major===0)===major){ const px=o.x+i*u+.5; x.moveTo(px,top); x.lineTo(px,bottom); } }
+    for(let j=-nyU;j<=nyD;j++){ if(!!(g.major&&j%g.major===0)===major){ const py=o.y+j*u+.5; x.moveTo(left,py); x.lineTo(right,py); } }
+    x.lineWidth=major?3:1.6; x.globalAlpha=major?Math.min(1,g.alpha+.3):g.alpha; x.stroke();
+  }
+  // axes
+  const ink='#111111', ah=14;
+  x.globalAlpha=1; x.strokeStyle=ink; x.fillStyle=ink; x.lineWidth=4; x.lineCap='round';
+  x.beginPath(); x.moveTo(left,o.y); x.lineTo(right,o.y); x.moveTo(o.x,top); x.lineTo(o.x,bottom); x.stroke();
+  const arrow=(px,py,dx,dy)=>{ x.beginPath(); x.moveTo(px,py); x.lineTo(px-dx*ah-dy*ah*.55,py-dy*ah+dx*ah*.55); x.lineTo(px-dx*ah+dy*ah*.55,py-dy*ah-dx*ah*.55); x.closePath(); x.fill(); };
+  arrow(right,o.y,1,0); arrow(o.x,top,0,-1);
+  if(full){ arrow(left,o.y,-1,0); arrow(o.x,bottom,0,1); }
+  // numbers
+  const step=u>=36?1:u>=22?2:5, fs=Math.round(Math.min(26,Math.max(15,u*.5)));
+  x.font='600 '+fs+'px Arial, Helvetica, sans-serif'; x.globalAlpha=.9;
+  const label=(t,px,py)=>{ x.strokeStyle='#ffffff'; x.lineWidth=5; x.lineJoin='round'; x.globalAlpha=.85; x.strokeText(t,px,py); x.globalAlpha=.9; x.fillText(t,px,py); };
+  x.textAlign='center'; x.textBaseline='top';
+  for(let i=-nxL;i<=nxR;i++){ if(i===0||i%step) continue; if(o.x+i*u>W-ah*2||o.x+i*u<ah*2) continue; label(String(i),o.x+i*u,o.y+8); }
+  x.textAlign='right'; x.textBaseline='middle';
+  for(let j=-nyU;j<=nyD;j++){ const v=-j, py=o.y+j*u; if(v===0||v%step) continue; if(py<ah*2||py>H-ah*2) continue; label(String(v),o.x-10,py); }
+  x.textAlign='right'; x.textBaseline='top'; label('0',o.x-10,o.y+8);
+  // axis names
+  x.font='italic 700 '+(fs+4)+'px Georgia, "Times New Roman", serif'; x.globalAlpha=1;
+  x.textAlign='left'; x.textBaseline='middle'; x.fillText('x',Math.min(right+ah*.4,W-fs),o.y-fs*.9);
+  x.textAlign='center'; x.textBaseline='bottom'; x.fillText('y',o.x+fs*.9,Math.max(top-ah*.3,fs+6));
+}
+function setGrid(b,cfg){ const g=cleanGrid(cfg); b.grid=g&&g.on?g:null; render(b); if(b.onGrid) b.onGrid(!!b.grid); }
+
+/* A board = visible canvas + a student ink layer ('s') + a teacher ink layer ('t')
+   + optional background picture. Separate layers mean the eraser only removes its
+   owner's marks, and the teacher's marks can be wiped without touching student work. */
+/* iPad Safari only allows sound after a tap, so prepare the audio on the first touch; then the timer beep can play later */
+['pointerdown','touchend','keydown'].forEach(ev=>document.addEventListener(ev,function unlock(){
+  try{ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return; const a=beep.ctx||(beep.ctx=new AC()); if(a.state==='suspended') a.resume(); }catch(e){}
+},{passive:true}));
+/* A board normally shows the fixed 1600x1200 page (b.cam === null).
+   With the unlimited canvas on, b.cam = {x,y,z} is a camera over an endless "world": marks keep world coordinates,
+   z = canvas pixels per world unit, and b.cw/b.ch is the size of the canvas that shows the world. */
+function makeBoard(canvas){
+  const b={canvas,ctx:canvas.getContext('2d'),layers:{s:null,t:null,sm:null,tm:null},bg:null,grid:null,token:0,
+           cam:null,cw:canvas.width||W,ch:canvas.height||H,getItems:null,_raf:0,_idle:0,layerCam:null,lastCost:0};
+  b.redrawNow=()=>{                                   // re-rasterise every layer for the current camera
+    if(b._raf){ cancelAnimationFrame(b._raf); b._raf=0; } clearTimeout(b._idle);
+    const t0=performance.now();
+    if(b.getItems){ paintKey(b,'s',b.getItems('s')||[]); paintKey(b,'t',b.getItems('t')||[]); }
+    b.layerCam=b.cam?{x:b.cam.x,y:b.cam.y,z:b.cam.z}:null;
+    b.lastCost=performance.now()-t0;
+    render(b);
+  };
+  /* Camera moved. Small drawings: redraw sharply every frame. Big drawings (slow to redraw): slide/scale the picture we already
+     have right now, and redraw it sharp once the movement settles. */
+  b.requestRedraw=()=>{
+    if(b._raf) return;
+    b._raf=requestAnimationFrame(()=>{
+      b._raf=0;
+      if(b.lastCost>16 && b.layerCam && b.cam){ render(b); clearTimeout(b._idle); b._idle=setTimeout(()=>b.redrawNow(),110); }
+      else b.redrawNow();
+    });
+  };
+  render(b); return b;
+}
+function layerOf(b,key,create){
+  if(!b.layers[key] && create){ const c=document.createElement('canvas'); c.width=b.cw; c.height=b.ch; b.layers[key]={c,ctx:c.getContext('2d')}; }
+  return b.layers[key];
+}
+function render(b){
+  const c=b.ctx; c.setTransform(1,0,0,1,0,0); c.fillStyle='#fff'; c.fillRect(0,0,b.cw,b.ch);
+  if(b.cam) renderInfBase(b);
+  else {
+    if(b.bg){ const k=Math.min(W/b.bg.width,H/b.bg.height), w=b.bg.width*k, h=b.bg.height*k; c.drawImage(b.bg,(W-w)/2,(H-h)/2,w,h); }
+    if(b.grid) c.drawImage(gridCanvas(b.grid),0,0);
+  }
+  const lc=b.layerCam, cm0=b.cam, moved=!!(cm0 && lc && !sameCam(cm0,lc));
+  if(moved){ const f=cm0.z/lc.z; c.save(); c.setTransform(f,0,0,f,(lc.x-cm0.x)*cm0.z,(lc.y-cm0.y)*cm0.z); }
+  for(const k of ['s','sm','t','tm']) if(b.layers[k]) c.drawImage(b.layers[k].c,0,0);
+  if(moved) c.restore();
+  if(b.sel){
+    if(b.cam){ const cm=b.cam; c.save(); c.setTransform(cm.z,0,0,cm.z,-cm.x*cm.z,-cm.y*cm.z); drawSelection(c,b.sel,Math.min(b.cw/W,b.ch/H)/cm.z); c.restore(); }
+    else drawSelection(c,b.sel);
+  }
+}
+
+/* ---------- unlimited canvas helpers ---------- */
+/* what a camera view looks like in messages: centre point + how much of the world is visible */
+function camContain(c,cw,ch){ const z=Math.min(cw/c.vw,ch/c.vh); return { z, x:c.cx-cw/(2*z), y:c.cy-ch/(2*z) }; }
+function cleanCam(d){
+  const n=(v,lo,hi)=>{ v=+v; return Number.isFinite(v)?Math.min(hi,Math.max(lo,v)):0; };
+  return { cx:n(d.cx,-1e7,1e7), cy:n(d.cy,-1e7,1e7), vw:Math.max(20,n(d.vw,20,1e7)), vh:Math.max(20,n(d.vh,20,1e7)) };
+}
+function renderInfBase(b){
+  const c=b.ctx, cm=b.cam; c.save(); c.setTransform(cm.z,0,0,cm.z,-cm.x*cm.z,-cm.y*cm.z);
+  if(b.bg){                                           // the teacher's picture / worksheet sits where the page is, with an outline
+    const k=Math.min(W/b.bg.width,H/b.bg.height), w=b.bg.width*k, h=b.bg.height*k;
+    c.drawImage(b.bg,(W-w)/2,(H-h)/2,w,h);
+    c.strokeStyle='rgba(0,0,0,.28)'; c.lineWidth=Math.max(2,1.5/cm.z); c.strokeRect(0,0,W,H);
+  }
+  if(b.grid) drawInfGrid(c,b);
+  c.restore();
+}
+function drawInfGrid(c,b){                            // the maths-book grid carries on forever
+  const g=b.grid, cm=b.cam, z=cm.z;
+  if(g.axes!=='none'){ c.drawImage(gridCanvas(g),0,0); return; }      // coordinate graphs stay on the page
+  const x0=cm.x, y0=cm.y, x1=cm.x+b.cw/z, y1=cm.y+b.ch/z;
+  let u=g.size; while((x1-x0)/u>90 || (y1-y0)/u>90) u*=2;             // very zoomed out: use every 2nd, 4th... line
+  const mult=u/g.size, isMaj=i=>g.major && Math.round(i*mult)%g.major===0;
+  const i0=Math.floor(x0/u), i1=Math.ceil(x1/u), j0=Math.floor(y0/u), j1=Math.ceil(y1/u);
+  c.strokeStyle=g.color; c.fillStyle=g.color; c.lineCap='butt';
+  if(g.type==='dots'){
+    c.globalAlpha=Math.min(1,g.alpha+.3);
+    for(let i=i0;i<=i1;i++) for(let j=j0;j<=j1;j++){
+      const big=g.major && isMaj(i) && isMaj(j), r=Math.max(big?5:3,(big?2.2:1.4)/z);
+      c.beginPath(); c.arc(i*u,j*u,r,0,Math.PI*2); c.fill();
+    }
+  } else {
+    for(const major of [false,true]){
+      if(major && !g.major) continue;
+      c.beginPath();
+      if(g.type==='square') for(let i=i0;i<=i1;i++){ if(!!isMaj(i)===major){ c.moveTo(i*u,y0); c.lineTo(i*u,y1); } }
+      for(let j=j0;j<=j1;j++){ if(!!isMaj(j)===major){ c.moveTo(x0,j*u); c.lineTo(x1,j*u); } }
+      c.lineWidth=Math.max(major?3:1.6,(major?1.6:1)/z); c.globalAlpha=major?Math.min(1,g.alpha+.3):g.alpha; c.stroke();
+    }
+  }
+  c.globalAlpha=1;
+}
+/* bounding box of any item, cached for pen strokes (their point arrays only ever grow or get replaced) */
+const _pb=new WeakMap();
+function itemBounds(it){
+  if(it.kind==='math'){ const d=mathDims(it), r=Math.hypot(d.w,d.h)/2*(it.sc||1); return { x:it.x-r, y:it.y-r, w:2*r, h:2*r }; }
+  if(it.kind==='pen' && it.pts){ const c=_pb.get(it.pts); if(c && c.n===it.pts.length) return c.b; const bb=bboxOf(it); _pb.set(it.pts,{n:it.pts.length,b:bb}); return bb; }
+  return bboxOf(it);
+}
+function contentBounds(items){
+  let x0=1e18,y0=1e18,x1=-1e18,y1=-1e18,n=0;
+  for(const it of items){
+    if(it.eraser) continue; const b=itemBounds(it); if(!isFinite(b.x+b.y+b.w+b.h)) continue;
+    n++; x0=Math.min(x0,b.x); y0=Math.min(y0,b.y); x1=Math.max(x1,b.x+b.w); y1=Math.max(y1,b.y+b.h);
+  }
+  return n ? {x:x0,y:y0,w:x1-x0,h:y1-y0} : null;
+}
+function sameCam(a,c){ return a.x===c.x && a.y===c.y && a.z===c.z; }
+function syncLayers(b){ if(b.cam && b.layerCam && !sameCam(b.cam,b.layerCam)) b.redrawNow(); }   // layers are showing an older view: catch up before drawing on them
+function camDo(b,ctx,fn){                             // run fn with the board's camera applied to ctx
+  if(!b.cam){ fn(); return; }
+  const cm=b.cam; ctx.save(); ctx.setTransform(cm.z,0,0,cm.z,-cm.x*cm.z,-cm.y*cm.z); fn(); ctx.restore();
+}
+function paintItems(b,ctx,items){
+  if(!b.cam){ for(const it of items) drawItem(ctx,it); return; }
+  const cm=b.cam, x0=cm.x, y0=cm.y, x1=cm.x+b.cw/cm.z, y1=cm.y+b.ch/cm.z;
+  camDo(b,ctx,()=>{ for(const it of items){ const bb=itemBounds(it); if(bb.x>x1||bb.y>y1||bb.x+bb.w<x0||bb.y+bb.h<y0) continue; drawItem(ctx,it); } });
+}
+/* ---------- hit-testing / bounding boxes for the Move tool ---------- */
+const _mctx=document.createElement('canvas').getContext('2d');
+function textBox(it){
+  _mctx.font='600 '+it.size+'px Arial, Helvetica, sans-serif';
+  const lines=String(it.text||'').slice(0,500).split('\n');
+  return { x:it.x1, y:it.y1, w:Math.max(...lines.map(l=>_mctx.measureText(l).width),10), h:lines.length*it.size*1.25 };
+}
+function bboxOf(it){
+  const r=(it.size||0)/2;
+  if(it.kind==='text') return textBox(it);
+  if(it.kind==='pen'){
+    let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+    for(const p of it.pts){ x0=Math.min(x0,p[0]); y0=Math.min(y0,p[1]); x1=Math.max(x1,p[0]); y1=Math.max(y1,p[1]); }
+    return { x:x0-r, y:y0-r, w:x1-x0+2*r, h:y1-y0+2*r };
+  }
+  const x0=Math.min(it.x1,it.x2), y0=Math.min(it.y1,it.y2);
+  return { x:x0-r, y:y0-r, w:Math.abs(it.x2-it.x1)+2*r, h:Math.abs(it.y2-it.y1)+2*r };
+}
+function segDist(px,py,ax,ay,bx,by){
+  const dx=bx-ax, dy=by-ay, l2=dx*dx+dy*dy;
+  let t=l2?((px-ax)*dx+(py-ay)*dy)/l2:0; t=Math.max(0,Math.min(1,t));
+  return Math.hypot(px-(ax+t*dx), py-(ay+t*dy));
+}
+function hitItem(it,x,y,tol){
+  if(it.eraser) return false;
+  if(it.kind==='math') return hitMath(it,x,y,tol);
+  const r=(it.size||0)/2+tol;
+  if(it.kind==='pen'){
+    const p=it.pts;
+    if(p.length===1) return Math.hypot(x-p[0][0],y-p[0][1])<=r;
+    for(let i=1;i<p.length;i++) if(segDist(x,y,p[i-1][0],p[i-1][1],p[i][0],p[i][1])<=r) return true;
+    return false;
+  }
+  if(it.kind==='line') return segDist(x,y,it.x1,it.y1,it.x2,it.y2)<=r;
+  if(it.kind==='text'){ const b=textBox(it); return x>=b.x-tol&&x<=b.x+b.w+tol&&y>=b.y-tol&&y<=b.y+b.h+tol; }
+  const x0=Math.min(it.x1,it.x2), x1=Math.max(it.x1,it.x2), y0=Math.min(it.y1,it.y2), y1=Math.max(it.y1,it.y2);
+  if(it.kind==='rect'){
+    if(it.fill) return x>=x0-r&&x<=x1+r&&y>=y0-r&&y<=y1+r;
+    const inside=x>=x0-r&&x<=x1+r&&y>=y0-r&&y<=y1+r;
+    const deep=x>x0+r&&x<x1-r&&y>y0+r&&y<y1-r;
+    return inside && !deep;
+  }
+  if(it.kind==='circle'){
+    const cx=(x0+x1)/2, cy=(y0+y1)/2, rx=Math.max((x1-x0)/2,1), ry=Math.max((y1-y0)/2,1);
+    const n=Math.hypot((x-cx)/rx,(y-cy)/ry);
+    return it.fill ? n<=1+r/Math.min(rx,ry) : Math.abs(n-1)*Math.min(rx,ry)<=r;
+  }
+  return false;
+}
+function paintKey(b,key,items){
+  const ink=items.filter(i=>i.kind!=='math'), mth=items.filter(i=>i.kind==='math');
+  const L=layerOf(b,key,ink.length>0);
+  if(L){ L.ctx.setTransform(1,0,0,1,0,0); L.ctx.clearRect(0,0,L.c.width,L.c.height); paintItems(b,L.ctx,ink); }
+  const M=layerOf(b,key+'m',mth.length>0);
+  if(M){ M.ctx.setTransform(1,0,0,1,0,0); M.ctx.clearRect(0,0,M.c.width,M.c.height); paintItems(b,M.ctx,mth); }
+}
+function rebuild(b,key,items,skipRender){
+  if(b.cam && b.layerCam && !sameCam(b.cam,b.layerCam) && b.getItems)           // the other layer is still showing an older view
+    for(const k of ['s','t']) if(k!==key) paintKey(b,k,b.getItems(k)||[]);
+  paintKey(b,key,items);
+  b.layerCam=b.cam?{x:b.cam.x,y:b.cam.y,z:b.cam.z}:null;
+  if(!skipRender) render(b);
+}
+function penTail(b,key,it,from){ syncLayers(b); const L=layerOf(b,key,true); camDo(b,L.ctx,()=>drawPenTail(L.ctx,it,from)); render(b); }
+function drawLive(b,key,it){ syncLayers(b); const L=layerOf(b,key,true); camDo(b,L.ctx,()=>drawItem(L.ctx,it)); render(b); }
+function setBg(b, dataUrl){
+  const tk=++b.token;
+  if(!dataUrl){ b.bg=null; render(b); return; }
+  const img=new Image();
+  img.onload=()=>{ if(tk!==b.token) return; b.bg=img; render(b); };
+  img.src=dataUrl;
+}
+/* Apply a remote drawing message to a layer's item list; returns the (possibly new) list */
+function applyOps(board,key,items,type,d){
+  switch(type){
+    case 'full': items=Array.isArray(d.items)?d.items:[]; rebuild(board,key,items); break;
+    case 'set': {
+      if(!d.item || typeof d.item!=='object') break;
+      const i=items.findIndex(x=>x.id===d.item.id);
+      if(i>=0) items[i]=d.item; else items.push(d.item);
+      rebuild(board,key,items); break;
+    }
+    case 'pts':
+      for(let i=items.length-1;i>=0;i--){
+        if(items[i].id===d.id && items[i].pts){ const it=items[i], from=it.pts.length; it.pts.push(...d.pts); penTail(board,key,it,from); break; }
+      }
+      break;
+    case 'undo':  items=items.filter(x=>x.id!==d.id); rebuild(board,key,items); break;
+    case 'front': { const i=items.findIndex(x=>x.id===d.id); if(i>=0){ items.push(items.splice(i,1)[0]); rebuild(board,key,items); } break; }
+    case 'clear': items=[]; rebuild(board,key,items); break;
+  }
+  return items;
+}
+
+/* ---------- zoom / pan view ----------
+   One object for both modes. Page mode = the 1600x1200 canvas is moved/scaled with CSS (as before).
+   Unlimited mode (v.inf) = the canvas fills the viewport and a camera (board.cam) decides which part of the endless world is drawn. */
+function makeView(vp, canvas, board){
+  const v={z:1,px:0,py:0,bw:W,bh:H,onChange:null,MAX:5,inf:false,k:1,z0:1,onUser:null,followUI:null,onMode:null};
+  const NULLS=()=>({s:null,t:null,sm:null,tm:null}), dpr=()=>Math.min(window.devicePixelRatio||1,2);
+  const zMin=()=>v.z0/25, zMax=()=>v.z0*6;
+  v.clamp=()=>{
+    const vw=vp.clientWidth, vh=vp.clientHeight, cw=v.bw*v.z, ch=v.bh*v.z;
+    v.px = cw<=vw+0.5 ? (vw-cw)/2 : Math.min(0,Math.max(vw-cw,v.px));
+    v.py = ch<=vh+0.5 ? (vh-ch)/2 : Math.min(0,Math.max(vh-ch,v.py));
+  };
+  v.hs=()=> (v.inf && board && board.cam) ? v.z0/board.cam.z : 1;
+  v.apply=user=>{                                     // user=true when a person (not a "follow") moved the view
+    if(v.inf){
+      const cm=board.cam; if(!cm) return;
+      cm.z=Math.min(zMax(),Math.max(zMin(),cm.z)); v.z=cm.z/v.z0;
+      board.requestRedraw();
+      if(user && v.onUser) v.onUser();
+      if(v.onChange) v.onChange(v);
+      return;
+    }
+    v.clamp(); canvas.style.transform='translate('+v.px+'px,'+v.py+'px) scale('+v.z+')'; if(v.onChange) v.onChange(v);
+  };
+  v.fit=()=>{
+    const vw=vp.clientWidth, vh=vp.clientHeight; if(!vw||!vh) return;
+    if(v.inf){
+      const k=dpr(), cw=Math.max(1,Math.round(vw*k)), ch=Math.max(1,Math.round(vh*k));
+      canvas.style.width=vw+'px'; canvas.style.height=vh+'px';
+      if(cw!==board.cw || ch!==board.ch || k!==v.k){   // window resized / iPad rotated: keep the same centre and relative zoom
+        const cm=board.cam, rel=cm.z/v.z0, cx=cm.x+board.cw/(2*cm.z), cy=cm.y+board.ch/(2*cm.z);
+        v.k=k; board.cw=cw; board.ch=ch; canvas.width=cw; canvas.height=ch; board.layers=NULLS();
+        v.z0=Math.min(cw/W,ch/H); cm.z=rel*v.z0; cm.x=cx-cw/(2*cm.z); cm.y=cy-ch/(2*cm.z);
+        board.redrawNow();
+      }
+      v.apply(); return;
+    }
+    const k=Math.min(vw/W,vh/H); v.bw=W*k; v.bh=H*k;
+    canvas.style.width=v.bw+'px'; canvas.style.height=v.bh+'px'; v.apply();
+  };
+  v.zoomAt=(cx,cy,nz)=>{ nz=Math.min(v.MAX,Math.max(1,nz)); const r=nz/v.z; v.px=cx-(cx-v.px)*r; v.py=cy-(cy-v.py)*r; v.z=nz; v.apply(); };   // page mode
+  v.zoomFactorAt=(cx,cy,f)=>{
+    if(!v.inf){ v.zoomAt(cx,cy,v.z*f); return; }
+    const cm=board.cam, nz=Math.min(zMax(),Math.max(zMin(),cm.z*f)), wx=cm.x+cx*v.k/cm.z, wy=cm.y+cy*v.k/cm.z;
+    cm.z=nz; cm.x=wx-cx*v.k/nz; cm.y=wy-cy*v.k/nz; v.apply(true);
+  };
+  v.zoomBy=f=>v.zoomFactorAt(vp.clientWidth/2,vp.clientHeight/2,f);
+  v.reset=()=>{
+    if(!v.inf){ v.z=1; v.apply(); return; }
+    const bb=contentBounds([...(board.getItems('s')||[]),...(board.getItems('t')||[])]) || {x:0,y:0,w:W,h:H};   // "Fit all": show everything drawn
+    board.cam=camContain({cx:bb.x+bb.w/2,cy:bb.y+bb.h/2,vw:Math.max(bb.w,400)*1.15,vh:Math.max(bb.h,300)*1.15},board.cw,board.ch);
+    v.apply(true);
+  };
+  v.snap=()=> v.inf ? {x:board.cam.x,y:board.cam.y,z:board.cam.z} : {z:v.z,px:v.px,py:v.py};
+  v.pinch=(g,ratio,mx,my)=>{                          // two-finger pinch + drag
+    const s=g.sn;
+    if(v.inf){
+      const nz=Math.min(zMax(),Math.max(zMin(),s.z*ratio)), wx=s.x+g.mx*v.k/s.z, wy=s.y+g.my*v.k/s.z, cm=board.cam;
+      cm.z=nz; cm.x=wx-mx*v.k/nz; cm.y=wy-my*v.k/nz; v.apply(true); return;
+    }
+    const nz=Math.min(v.MAX,Math.max(1,s.z*ratio)), r=nz/s.z;
+    v.z=nz; v.px=mx-(g.mx-s.px)*r; v.py=my-(g.my-s.py)*r; v.apply();
+  };
+  v.panBy=(dx,dy)=>{
+    if(v.inf){ const cm=board.cam; cm.x-=dx*v.k/cm.z; cm.y-=dy*v.k/cm.z; v.apply(true); return; }
+    v.px+=dx; v.py+=dy; v.apply();
+  };
+  v.wheel=(e,cx,cy)=>{                                // unlimited: scroll/two-finger-slide moves around, ctrl+scroll or trackpad pinch zooms
+    if(v.inf && !e.ctrlKey && !e.metaKey){ v.panBy(-e.deltaX,-e.deltaY); return; }
+    v.zoomFactorAt(cx,cy,Math.exp(-e.deltaY*(e.ctrlKey?0.01:0.0015)));
+  };
+  /* the part of the page currently on screen, as a camera view (used to start the unlimited canvas where the student was looking) */
+  v.pageRect=()=>{
+    const vw=vp.clientWidth, vh=vp.clientHeight;
+    if(!vw||!vh||v.inf) return {cx:W/2,cy:H/2,vw:W,vh:H};
+    const s=W/v.bw; return { cx:(vw/2-v.px)/v.z*s, cy:(vh/2-v.py)/v.z*s, vw:vw/v.z*s, vh:vh/v.z*s };
+  };
+  v.followRect=c=>{ if(!v.inf) return; board.cam=camContain(c,board.cw,board.ch); v.apply(false); };
+  v.setInf=(on,rect)=>{
+    on=!!on; if(on===v.inf) return;
+    if(on){
+      rect=rect||v.pageRect();
+      v.inf=true; canvas.classList.add('inf'); canvas.style.transform='none';
+      const vw=vp.clientWidth||W, vh=vp.clientHeight||H, k=dpr();
+      v.k=k; board.cw=Math.max(1,Math.round(vw*k)); board.ch=Math.max(1,Math.round(vh*k));
+      canvas.width=board.cw; canvas.height=board.ch; canvas.style.width=vw+'px'; canvas.style.height=vh+'px';
+      board.layers=NULLS(); v.z0=Math.min(board.cw/W,board.ch/H); board.cam=camContain(rect,board.cw,board.ch);
+      board.redrawNow(); v.apply();
+    } else {
+      v.inf=false; canvas.classList.remove('inf'); canvas.style.transform='';
+      board.cam=null; board.cw=W; board.ch=H; canvas.width=W; canvas.height=H; board.layers=NULLS();
+      v.z=1; v.px=0; v.py=0; v.fit(); board.redrawNow();
+    }
+    if(v.onMode) v.onMode(v.inf);
+  };
+  v.reset.page=true;
+  return v;
+}
+
+/* ---------- text entry dialog ---------- */
+function askText(cb,initial,title){
+  const m=document.createElement('div'); m.className='modal';
+  m.innerHTML='<div class="modal-card"><h3></h3><textarea class="text" rows="3" maxlength="300" placeholder="Type your text…" aria-label="Text"></textarea>'+
+    '<div class="row"><button class="btn ghost" data-a="c">Cancel</button><button class="btn" data-a="ok"></button></div></div>';
+  document.body.appendChild(m);
+  m.querySelector('h3').textContent=title||'Add text'; m.querySelector('[data-a=ok]').textContent=initial!=null?'Save':'Add text';
+  const ta=m.querySelector('textarea'); if(initial!=null) ta.value=initial; ta.focus(); ta.setSelectionRange(ta.value.length,ta.value.length);
+  const close=()=>m.remove();
+  const ok=()=>{ const t=ta.value.trim(); close(); if(t) cb(t); };
+  m.querySelector('[data-a=c]').onclick=close; m.querySelector('[data-a=ok]').onclick=ok;
+  m.onclick=e=>{ if(e.target===m) close(); };
+  ta.addEventListener('keydown',e=>{ if(e.key==='Escape') close(); });
+}
+
+/* ---------- maths tools tray (drag onto the board, or tap to add) ---------- */
+const MATH_TABS=[
+  ['Numicon',[1,2,3,4,5,6,7,8,9,10].map(n=>({type:'numicon',val:n,label:String(n)}))],
+  ['Place value',[1,10,100,1000,10000,100000,1000000].map(v=>({type:'token',val:v,label:v.toLocaleString('en-GB')}))],
+  ['Base ten',[{type:'ones',label:'Ones'},{type:'tens',label:'Tens'},{type:'hundreds',label:'Hundreds'}]],
+  ['Protractor',[{type:'protractor',label:'Protractor'}]]
+];
+let MT={pad:null};
+function closeMathTray(){
+  document.getElementById('mt')?.remove();
+  if(MT.pad){ MT.pad.style.paddingBottom=''; MT.pad=null; }
+}
+function mathCanvas(spec,maxW,maxH,dpr){
+  const it={...spec,x:0,y:0,rot:0,sc:1}, d=mathDims(it), k=Math.min(maxW/d.w,maxH/d.h,1.2);
+  const cw=Math.ceil(d.w*k)+4, ch=Math.ceil(d.h*k)+4, c=document.createElement('canvas');
+  c.width=cw*dpr; c.height=ch*dpr; c.style.width=cw+'px'; c.style.height=ch+'px';
+  const x=c.getContext('2d'); x.setTransform(dpr,0,0,dpr,0,0); x.translate(cw/2,ch/2); x.scale(k,k); drawMath(x,it);
+  return c;
+}
+function toggleMathTray(ed,padEl){
+  if(document.getElementById('mt')){ closeMathTray(); return; }
+  const tray=document.createElement('div'); tray.id='mt'; tray.className='mt';
+  tray.innerHTML='<div class="mt-head"><div class="mt-tabs"></div><div class="spacer"></div><span class="mt-hint">Drag onto the board, or tap to add. Use ↖ Move to turn, resize or delete.</span><button class="tool sm mt-x" aria-label="Close maths tools">✕</button></div><div class="mt-items"></div>';
+  document.body.appendChild(tray);
+  const tabs=tray.querySelector('.mt-tabs'), box=tray.querySelector('.mt-items');
+  const show=idx=>{
+    tabs.querySelectorAll('button').forEach((b,i)=>b.setAttribute('aria-pressed',i===idx));
+    box.innerHTML='';
+    MATH_TABS[idx][1].forEach(spec=>{
+      const el=document.createElement('div'); el.className='mt-item';
+      el.appendChild(mathCanvas(spec,spec.type==='protractor'?200:96,110,2));
+      const lab=document.createElement('span'); lab.textContent=spec.label; el.appendChild(lab);
+      el.addEventListener('pointerdown',e=>{
+        e.preventDefault(); try{ el.setPointerCapture(e.pointerId); }catch(_){}
+        const sx=e.clientX, sy=e.clientY; let ghost=null, moved=false;
+        const mv=ev=>{
+          if(!moved && Math.hypot(ev.clientX-sx,ev.clientY-sy)>8){
+            moved=true; ghost=mathCanvas(spec,170,170,2); ghost.className='mt-ghost'; document.body.appendChild(ghost);
+          }
+          if(ghost){ ghost.style.left=ev.clientX+'px'; ghost.style.top=ev.clientY+'px'; }
+        };
+        const done=ev=>{
+          el.removeEventListener('pointermove',mv); el.removeEventListener('pointerup',up); el.removeEventListener('pointercancel',cancel);
+          ghost?.remove();
+        };
+        const up=ev=>{
+          done(ev);
+          if(!moved){ ed.addMath(spec,null); return; }
+          const tr=tray.getBoundingClientRect();
+          if(ev.clientY>=tr.top) return;                      // dropped back on the tray: cancel
+          ed.addMath(spec,{x:ev.clientX,y:ev.clientY});
+        };
+        const cancel=ev=>done(ev);
+        el.addEventListener('pointermove',mv); el.addEventListener('pointerup',up); el.addEventListener('pointercancel',cancel);
+      });
+      box.appendChild(el);
+    });
+  };
+  MATH_TABS.forEach(([name],i)=>{ const b=document.createElement('button'); b.className='tool sm'; b.textContent=name; b.onclick=()=>show(i); tabs.appendChild(b); });
+  tray.querySelector('.mt-x').onclick=closeMathTray;
+  show(0);
+  if(padEl){ MT.pad=padEl; padEl.style.paddingBottom=tray.offsetHeight+'px'; }
+}
+
+/* ---------- drawing editor (used by students AND by the teacher on a maximised screen) ----------
+   o: {canvas, vp, board, key:'s'|'t', view, E:{tool,color,size,fill}, getItems(), setItems(a), send(msg)}  */
+function createEditor(o){
+  const {canvas,vp,board,key,view,E}=o;
+  const ac=new AbortController(), sg={signal:ac.signal};
+  const ptrs=new Map();
+  let cur=null, curPtr=null, pend=[], pendT=null, lastSet=0, gest=null, pan=null, drag=null, selId=null, locked=false, lastTap=null;
+  const items=()=>o.getItems();
+  const pos=e=>{                                     // pointer -> board coordinates (world coordinates in unlimited mode)
+    const r=canvas.getBoundingClientRect(), px=(e.clientX-r.left)/r.width*board.cw, py=(e.clientY-r.top)/r.height*board.ch, cm=board.cam;
+    return cm ? [cm.x+px/cm.z, cm.y+py/cm.z] : [px,py];
+  };
+  const wpp=()=>{ const r=canvas.getBoundingClientRect(), s=board.cw/(r.width||1); return board.cam ? s/board.cam.z : s; };   // board units per screen pixel
+  const hs=()=>view.hs?view.hs():1;
+  const P=(e,noSnap)=>{ const p=pos(e); return (E.snap && board.grid && !noSnap && E.tool!=='eraser') ? snapPt(board.grid,p) : p; };   // grid-snapped position
+  const vpPt=(x,y)=>{ const r=vp.getBoundingClientRect(); return [x-r.left,y-r.top]; };
+  function flush(){ clearTimeout(pendT); pendT=null; if(pend.length && cur) o.send({t:'pts',id:cur.id,pts:pend}); pend=[]; }
+  function abortStroke(){
+    if(!cur) return;
+    clearTimeout(pendT); pendT=null; pend=[];
+    const it=cur; cur=null; curPtr=null;
+    const a=items(), i=a.indexOf(it); if(i>=0) a.splice(i,1);
+    rebuild(board,key,a); o.send({t:'undo',id:it.id});
+  }
+  function snap(it){
+    if(it.kind==='pen') return {pts:it.pts.map(p=>p.slice())};
+    if(it.kind==='math') return {x:it.x,y:it.y,rot:it.rot||0,sc:it.sc||1};
+    if(it.kind==='text') return {x1:it.x1,y1:it.y1,size:it.size};
+    return {x1:it.x1,y1:it.y1,x2:it.x2,y2:it.y2};
+  }
+  function moveItem(it,orig,dx,dy){
+    if(it.kind==='pen') it.pts=orig.pts.map(p=>[p[0]+dx,p[1]+dy]);
+    else if(it.kind==='math'){ it.x=orig.x+dx; it.y=orig.y+dy; }
+    else { it.x1=orig.x1+dx; it.y1=orig.y1+dy; if(orig.x2!==undefined){ it.x2=orig.x2+dx; it.y2=orig.y2+dy; } }
+  }
+  function cancelDrag(){
+    if(!drag) return;
+    moveItem(drag.it,drag.orig,0,0);
+    if(drag.it.kind==='math'){ drag.it.rot=drag.orig.rot; drag.it.sc=drag.orig.sc; }
+    if(drag.it.kind==='text') drag.it.size=drag.orig.size;
+    board.sel = (drag.it.kind==='math'||drag.it.kind==='text') && E.tool==='move' ? selFor(drag.it) : null;
+    rebuild(board,key,items()); o.send({t:'set',item:drag.it}); drag=null;
+  }
+  view.refreshSel=()=>{
+    if(E.tool!=='move') selId=null;
+    const it=selId && items().find(x=>x.id===selId && (x.kind==='math'||x.kind==='text'));
+    if(!it) selId=null;
+    board.sel = it ? selFor(it) : null; render(board);
+  };
+  const textAt=(x,y)=>{ const tol=18*wpp(), a=items(); for(let i=a.length-1;i>=0;i--) if(a[i].kind==='text' && hitItem(a[i],x,y,tol)) return a[i]; return null; };
+  function editText(it){
+    askText(text=>{
+      it.text=text; rebuild(board,key,items()); o.send({t:'set',item:it});
+      if(E.tool==='move'){ selId=it.id; board.sel=selFor(it); render(board); }
+    },it.text,'Edit text');
+  }
+  function beginGesture(){
+    const [a,b]=[...ptrs.values()]; const [mx,my]=vpPt((a.x+b.x)/2,(a.y+b.y)/2);
+    gest={d:Math.hypot(a.x-b.x,a.y-b.y)||1,mx,my,sn:view.snap()}; pan=null;
+  }
+  canvas.addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    if(locked) return;
+    ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    try{ canvas.setPointerCapture(e.pointerId); }catch(_){}
+    if(ptrs.size>=2){ abortStroke(); cancelDrag(); beginGesture(); return; }       // two fingers = pinch zoom + pan
+    if(ptrs.size>2) return;
+    if(E.tool==='hand'){ pan={id:e.pointerId}; return; }
+    const nowT=performance.now(), tapP=pos(e);
+    if(E.tool!=='eraser' && E.tool!=='text'){                          // double-click / double-tap on text = edit it
+      if(lastTap && nowT-lastTap.t<450 && Math.hypot(e.clientX-lastTap.cx,e.clientY-lastTap.cy)<30){
+        const tIt=textAt(tapP[0],tapP[1]);
+        if(tIt){
+          const a=items(), st=lastTap.id && a.find(i=>i.id===lastTap.id);
+          if(st && ((st.pts && st.pts.length<=3) || (!st.pts && Math.hypot((st.x2||0)-st.x1,(st.y2||0)-st.y1)<6))){ a.splice(a.indexOf(st),1); rebuild(board,key,a); o.send({t:'undo',id:st.id}); }
+          lastTap=null; if(selId!==tIt.id){ selId=null; board.sel=null; } editText(tIt); return;
+        }
+      }
+      lastTap={t:nowT,cx:e.clientX,cy:e.clientY,id:null};
+    }
+    if(E.tool==='text') return;                                       // handled on click
+    if(E.tool==='move'){                                              // select, drag, rotate, resize, delete
+      const [x,y]=pos(e), tol=18*wpp(), a=items();
+      const sel=selId && a.find(i=>i.id===selId && (i.kind==='math'||i.kind==='text'));
+      if(sel && sel.kind==='text' && hitTextHandle(sel,x,y,hs())){
+        const b=textBox(sel); drag={ mode:'tsize', it:sel, ptr:e.pointerId, ox:x, oy:y, last:0, orig:snap(sel), w0:b.w, h0:b.h }; return;
+      }
+      if(sel && sel.kind==='math'){
+        const h=hitHandle(sel,x,y,hs());
+        if(h==='del'){ a.splice(a.indexOf(sel),1); selId=null; board.sel=null; rebuild(board,key,a); o.send({t:'undo',id:sel.id}); return; }
+        if(h){ drag={ mode:h, it:sel, ptr:e.pointerId, ox:x, oy:y, last:0, orig:snap(sel) }; return; }
+      }
+      for(let i=a.length-1;i>=0;i--){
+        if(hitItem(a[i],x,y,tol)){
+          const it=a[i];
+          if(it.kind==='math'){ a.push(a.splice(i,1)[0]); o.send({t:'front',id:it.id}); selId=it.id; board.sel=selOf(it); }
+          else if(it.kind==='text'){ selId=it.id; board.sel=selFor(it); }
+          else { selId=null; board.sel=bboxOf(it); }
+          drag={ mode:'move', it, ptr:e.pointerId, ox:x, oy:y, last:0, orig:snap(it) };
+          rebuild(board,key,a); return;
+        }
+      }
+      selId=null; board.sel=null; render(board);
+      return;
+    }
+    if(selId||board.sel){ selId=null; board.sel=null; }
+    const [x,y]=P(e), isPen=E.tool==='pen'||E.tool==='eraser';
+    const it={ id:rid(10), kind:isPen?'pen':E.tool, color:E.color, eraser:E.tool==='eraser',
+               size:E.tool==='eraser'?Math.max(E.size*3,24):E.size, fill:E.fill };
+    if(isPen) it.pts=[[x,y]]; else { it.x1=x; it.y1=y; it.x2=x; it.y2=y; }
+    cur=it; curPtr=e.pointerId; items().push(it); if(lastTap) lastTap.id=it.id;
+    if(isPen) drawLive(board,key,it); else rebuild(board,key,items());
+    o.send({t:'set',item:it});
+  },sg);
+  canvas.addEventListener('pointermove',e=>{
+    const p=ptrs.get(e.pointerId); if(!p) return;
+    const dx=e.clientX-p.x, dy=e.clientY-p.y; p.x=e.clientX; p.y=e.clientY;
+    if(gest && ptrs.size>=2){
+      const [a,b]=[...ptrs.values()]; const d=Math.hypot(a.x-b.x,a.y-b.y)||1;
+      const [mx,my]=vpPt((a.x+b.x)/2,(a.y+b.y)/2);
+      view.pinch(gest,d/gest.d,mx,my); return;
+    }
+    if(pan && pan.id===e.pointerId){ view.panBy(dx,dy); return; }
+    if(drag && e.pointerId===drag.ptr){
+      e.preventDefault();
+      const [x,y]=pos(e), it=drag.it;
+      if(drag.mode==='rot'){
+        let r=Math.atan2(y-it.y,x-it.x)+Math.PI/2; const deg=r*180/Math.PI, sn=Math.round(deg/15)*15;
+        if(Math.abs(deg-sn)<2.5) r=sn*Math.PI/180;
+        it.rot=r;
+      } else if(drag.mode==='size'){
+        const d=mathDims(it); it.sc=Math.min(6,Math.max(0.2,Math.hypot(x-it.x,y-it.y)/(Math.hypot(d.w,d.h)/2)));
+      } else if(drag.mode==='tsize'){
+        const k=((x-drag.orig.x1)/drag.w0+(y-drag.orig.y1)/drag.h0)/2;
+        it.size=Math.round(Math.min(300,Math.max(10,drag.orig.size*k)));
+      } else moveItem(it,drag.orig,x-drag.ox,y-drag.oy);
+      board.sel = selFor(it); rebuild(board,key,items());
+      const now=performance.now(); if(now-drag.last>60){ drag.last=now; o.send({t:'set',item:drag.it}); }
+      return;
+    }
+    if(cur && e.pointerId===curPtr){
+      e.preventDefault();
+      if(cur.pts){
+        syncLayers(board); const L=layerOf(board,key,true);
+        const evs=e.getCoalescedEvents?e.getCoalescedEvents():[e];
+        for(const ev of (evs.length?evs:[e])){
+          const pt=P(ev).map(v=>Math.round(v*10)/10), from=cur.pts.length, lp=cur.pts[from-1];
+          if(E.snap && board.grid && lp && lp[0]===pt[0] && lp[1]===pt[1]) continue;   // still on the same grid point
+          cur.pts.push(pt); camDo(board,L.ctx,()=>drawPenTail(L.ctx,cur,from)); pend.push(pt);
+        }
+        render(board);
+        if(!pendT) pendT=setTimeout(flush,30);
+      } else {
+        [cur.x2,cur.y2]=P(e); rebuild(board,key,items());
+        const now=performance.now(); if(now-lastSet>40){ lastSet=now; o.send({t:'set',item:cur}); }
+      }
+    }
+  },sg);
+  const up=e=>{
+    if(!ptrs.has(e.pointerId)) return;
+    ptrs.delete(e.pointerId);
+    if(ptrs.size<2) gest=null;
+    if(pan && pan.id===e.pointerId) pan=null;
+    if(drag && e.pointerId===drag.ptr){ const it=drag.it; o.send({t:'set',item:it}); drag=null; board.sel=((it.kind==='math'||it.kind==='text')&&E.tool==='move')?selFor(it):null; if(!board.sel) selId=null; render(board); }
+    if(cur && e.pointerId===curPtr){
+      if(cur.pts) flush(); else o.send({t:'set',item:cur});
+      cur=null; curPtr=null;
+    }
+  };
+  canvas.addEventListener('pointerup',up,sg); canvas.addEventListener('pointercancel',up,sg);
+  canvas.addEventListener('contextmenu',e=>e.preventDefault(),sg);
+  canvas.addEventListener('click',e=>{
+    if(locked || E.tool!=='text') return;
+    const [x,y]=P(e);
+    const ex=textAt(...pos(e)); if(ex){ editText(ex); return; }
+    askText(text=>{
+      const it={ id:rid(10), kind:'text', color:E.color, size:20+E.size*3, x1:x, y1:y, text };
+      items().push(it); drawLive(board,key,it); o.send({t:'set',item:it});
+    });
+  },sg);
+  vp.addEventListener('wheel',e=>{
+    e.preventDefault(); if(locked) return; const r=vp.getBoundingClientRect();
+    view.wheel(e,e.clientX-r.left,e.clientY-r.top);
+  },{passive:false,signal:ac.signal});
+  return {
+    undo(){ const a=items(), it=a.pop(); if(!it) return; rebuild(board,key,a); o.send({t:'undo',id:it.id}); view.refreshSel(); },
+    clearAll(){ o.setItems([]); rebuild(board,key,[]); o.send({t:'clear'}); view.refreshSel(); },
+    deselect(){ selId=null; board.sel=null; render(board); },
+    setLocked(v){                                   // teacher lock: drop whatever is in progress, ignore all input
+      locked=!!v;
+      if(locked){ abortStroke(); cancelDrag(); ptrs.clear(); gest=null; pan=null; selId=null; board.sel=null; render(board); }
+    },
+    addMath(spec,pt){
+      const r=vp.getBoundingClientRect();
+      let [x,y]=pt ? pos({clientX:pt.x,clientY:pt.y}) : pos({clientX:r.left+r.width/2,clientY:r.top+r.height*0.4});
+      if(!board.cam){ x=Math.min(W-60,Math.max(60,x)); y=Math.min(H-60,Math.max(60,y)); }   // on the page: keep it on the page
+      const it={ id:rid(10), kind:'math', type:spec.type, val:spec.val, x, y, rot:0, sc:1 };
+      items().push(it); E.tool='move'; selId=it.id; board.sel=selOf(it);
+      if(view.syncTools) view.syncTools();
+      rebuild(board,key,items()); o.send({t:'set',item:it});
+    },
+    destroy(){ cancelDrag(); selId=null; board.sel=null; render(board); ac.abort(); }
+  };
+}
+
+/* ---------- toolbar (tools, colours, size, undo/clear, zoom) ---------- */
+function buildToolbar(host,E,view,o){
+  host.innerHTML='';
+  const TOOLS=[['pen','✏️ Pen'],['eraser','🧽 Eraser'],['line','╱ Line'],['rect','▭ Square'],['circle','◯ Circle'],['text','Aa Text'],['move','↖ Move'],['hand','✋ Pan']];
+  const grp=l=>{ const g=document.createElement('div'); g.className='group'; g.setAttribute('role','group'); g.setAttribute('aria-label',l); host.appendChild(g); return g; };
+  const btn=(p,txt,cls,fn)=>{ const b=document.createElement('button'); b.className=cls; b.textContent=txt; b.onclick=fn; p.appendChild(b); return b; };
+  const g1=grp('Tools');
+  const tb=TOOLS.map(([id,l])=>{ const b=btn(g1,l,'tool',()=>{ E.tool=id; refresh(); if(view.refreshSel) view.refreshSel(); }); b.dataset.tool=id; return b; });
+  const g2=grp('Colours');
+  const pick=c=>{ E.color=c; if(E.tool==='eraser'||E.tool==='hand'||E.tool==='move') E.tool='pen'; refresh(); if(view.refreshSel) view.refreshSel(); };
+  const sw=COLORS.map(c=>{ const b=document.createElement('button'); b.className='swatch'; b.style.background=c; b.dataset.c=c; b.setAttribute('aria-label','Colour '+c); b.onclick=()=>pick(c); g2.appendChild(b); return b; });
+  const cp=document.createElement('input'); cp.type='color'; cp.value='#3b82f6'; cp.setAttribute('aria-label','Custom colour'); cp.oninput=()=>pick(cp.value); g2.appendChild(cp);
+  const lab=document.createElement('label'); lab.className='size'; lab.append('Size ');
+  const rg=document.createElement('input'); rg.type='range'; rg.min=2; rg.max=40; rg.value=E.size; rg.oninput=()=>{ E.size=+rg.value; }; lab.appendChild(rg); host.appendChild(lab);
+  const g3=grp('Actions');
+  btn(g3,'🧮 Math tools','tool math',()=>{ if(o.mathTools) o.mathTools(); });
+  if(o.photo){ btn(g3,'📷 Photo','tool',o.photo); const rm=btn(g3,'Remove photo','tool sm hidden',o.removePhoto); view.photoUI=has=>rm.classList.toggle('hidden',!has); }
+  const fillB=btn(g3,'Fill shapes','tool sm',()=>{ E.fill=!E.fill; refresh(); });
+  if(o.snapUI){
+    const snapB=btn(g3,'','tool sm hidden',()=>{ E.snap=!E.snap; refresh(); });
+    snapB.id='btn-snap'; view.gridUI=on=>{ snapB.classList.toggle('hidden',!on); };
+    view.snapB=snapB;
+  }
+  if(o.infToggle){                                   // student: tick for an unlimited canvas
+    const lb=document.createElement('label'); lb.className='tool sm chk'; lb.title='Tick to draw on a canvas with no edges: drag to move around, pinch to zoom';
+    const cb=document.createElement('input'); cb.type='checkbox'; cb.setAttribute('aria-label','Unlimited canvas');
+    cb.onchange=()=>{ if(o.infToggle(cb.checked)===false) cb.checked=!cb.checked; };
+    lb.append(cb,' ∞ Unlimited canvas'); g3.appendChild(lb); view.infCb=cb;
+  }
+  btn(g3,'Undo','tool sm',o.undo); btn(g3,o.clearLabel,'tool sm',o.clear);
+  const g4=grp('Zoom');
+  btn(g4,'−','tool sm',()=>view.zoomBy(1/1.4)).setAttribute('aria-label','Zoom out');
+  const zl=document.createElement('span'); zl.className='zl'; zl.textContent='100%'; g4.appendChild(zl);
+  btn(g4,'+','tool sm',()=>view.zoomBy(1.4)).setAttribute('aria-label','Zoom in');
+  const fitB=btn(g4,'Fit','tool sm',()=>view.reset());
+  view.onMode=on=>{ fitB.textContent=on?'Fit all':'Fit'; if(view.infCb) view.infCb.checked=on; };
+  if(o.follow){ const fb=btn(g4,'⟲ Follow student','tool sm hidden',o.follow); view.followUI=on=>fb.classList.toggle('hidden',!on); }
+  view.onChange=v=>{ zl.textContent=Math.round(v.z*100)+'%'; };
+  view.syncTools=()=>refresh();
+  function refresh(){
+    tb.forEach(b=>b.setAttribute('aria-pressed',b.dataset.tool===E.tool));
+    sw.forEach(b=>b.setAttribute('aria-pressed',b.dataset.c===E.color));
+    fillB.setAttribute('aria-pressed',E.fill);
+    if(view.snapB){ view.snapB.setAttribute('aria-pressed',!!E.snap); view.snapB.textContent=(E.snap?'☑':'☐')+' 🧲 Snap to grid'; }
+  }
+  refresh();
+}
+
+/* =====================================================================
+   ROUTER
+   ?room=CODE  -> student      (no param) -> landing / teacher
+   ===================================================================== */
+const params = new URLSearchParams(location.search);
+const roomParam = (params.get('room')||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+if(roomParam){ initStudent(roomParam); }
+else { show('landing'); }
+$('btn-teacher').onclick = () => { hide('landing'); show('teacher'); initTeacher(); };
+$('btn-code').onclick = joinByCode;
+$('code-in').addEventListener('keydown', e=>{ if(e.key==='Enter') joinByCode(); });
+function joinByCode(){
+  const c = $('code-in').value.toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(c.length<4){ toast('Enter the room code from your teacher'); return; }
+  location.href = location.pathname + '?room=' + c;
+}
+
+/* =====================================================================
+   TEACHER
+   ===================================================================== */
+const T = { peer:null, code:null, open:false, started:false, lockAll:false, lockedCids:new Set(), students:new Map(), menuFor:null, retries:0, bg:null, grid:null, timer:{state:'off',total:0,remaining:0,endPerf:0}, E:{tool:'pen',color:'#ef4444',size:5,fill:false} };
+
+function initTeacher(){
+  $('tile-size').oninput = e => $('grid').style.setProperty('--tile', e.target.value+'px');
+  $('btn-qr').onclick = showQrModal;
+  $('btn-end').onclick = endRoom;
+  $('btn-start').onclick = startSession;
+  $('btn-random').onclick = randomScreen;
+  $('btn-draw').onclick = openDrawSend;
+  $('btn-tab').onclick = () => $('tab-file').click();
+  $('btn-timer').onclick = timerModal;
+  $('btn-lock').onclick = () => lockAll(!anyLocked());
+  $('btn-grid').onclick = gridPanel;
+  $('t-timer-pause').onclick = toggleTimerPause;
+  $('t-timer-stop').onclick = stopTimer;
+  setInterval(timerTick,250);
+  $('tab-file').onchange = e => { const f=e.target.files[0]; e.target.value=''; if(f) fileToData(f,2200,1800000,tabModal); };
+  $('btn-bg').onclick = () => $('bg-file').click();
+  $('bg-file').onchange = e => { loadImageFile(e.target.files[0]); e.target.value=''; };
+  $('btn-bg-off').onclick = () => applyBg(null,false);
+  $('btn-clearall').onclick = () => { if(confirm('Clear all screens? Every student’s drawings, your drawings on their screens, their photos and the background are removed, leaving a blank canvas.')) applyBg(null,true,true); };
+  document.addEventListener('paste', e => {
+    const f=[...(e.clipboardData?.files||[])].find(x=>x.type.startsWith('image/'));
+    if(f && !document.querySelector('.modal')){ e.preventDefault(); loadImageFile(f); }
+  });
+  window.addEventListener('dragover', e => e.preventDefault());
+  window.addEventListener('drop', e => { e.preventDefault(); const f=e.dataTransfer?.files?.[0]; if(f) loadImageFile(f); });
+  document.addEventListener('click', e=>{ if(!e.target.closest('.menu') && !e.target.closest('.kebab')) closeMenus(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ if(document.querySelector('.modal')) return; closeMenus(); exitMax(); } });
+  startRoom(localStorage.getItem('classboard_room') || roomCode());
+}
+
+function startRoom(code){
+  T.code = code;
+  T.started = localStorage.getItem('classboard_started') === code;   // a refresh mid-class skips the lobby
+  loadLocks(code);
+  T.peer = new Peer(ID_PREFIX+code, PEER_OPTS);
+  T.peer.on('open', () => {
+    localStorage.setItem('classboard_room', code);
+    T.retries = 0;
+    $('room-code').textContent = code;
+    ['room-chip','btn-qr','btn-random','btn-tab','btn-lock','btn-clearall','btn-timer','btn-grid','btn-draw','btn-bg','count-chip','size-ctl','btn-end'].forEach(show);
+    T.open = true;
+    renderEmpty();
+    renderLobby();
+    applyMode();
+  });
+  T.peer.on('connection', onStudentConnection);
+  T.peer.on('disconnected', () => { try{ T.peer.reconnect(); }catch(e){} });
+  T.peer.on('error', err => {
+    if(err.type==='unavailable-id'){
+      // our old tab may still be registered: retry a few times, then pick a new code
+      try{T.peer.destroy();}catch(e){}
+      if(T.retries++ < 3){ $('start-sub').textContent='Reclaiming your previous room…'; setTimeout(()=>startRoom(code),2000); }
+      else { localStorage.removeItem('classboard_room'); startRoom(roomCode()); }
+    } else if(err.type==='network' || err.type==='server-error' || err.type==='socket-error'){
+      $('start-title').textContent='Can’t reach the server';
+      $('start-sub').textContent='Check your internet connection. Retrying…';
+    } else { console.warn(err); }
+  });
+}
+
+function joinUrl(){ return location.origin + location.pathname + '?room=' + T.code; }
+
+/* ---- lobby: QR stays up and names collect until the teacher presses Start ---- */
+function applyMode(){
+  const lobby = T.open && !T.started;
+  $('teacher').classList.toggle('lobby', lobby);
+  $('lobby').classList.toggle('hidden', !lobby);
+  $('grid').classList.toggle('hidden', lobby);
+}
+function renderLobby(){
+  $('lobby-code').textContent = T.code;
+  const q=$('lobby-qr'); q.innerHTML='';
+  new QRCode(q, { text: joinUrl(), width:300, height:300, correctLevel: QRCode.CorrectLevel.M });
+  const lk=$('lobby-link'); lk.textContent=joinUrl();
+  lk.onclick = () => { navigator.clipboard?.writeText(joinUrl()); toast('Link copied'); };
+  updateLobbyList();
+}
+function updateLobbyList(){
+  const list=$('joined-list'); if(!list) return;
+  const all=[...T.students.values()], online=all.filter(s=>s.online).length;
+  list.innerHTML='';
+  if(!all.length){
+    const p=document.createElement('p'); p.className='joined-empty'; p.textContent='No one has joined yet'; list.appendChild(p);
+  }
+  for(const s of all){
+    const c=document.createElement('div'); c.className='joined-chip'+(s.online?'':' offline');
+    const d=document.createElement('span'); d.className='dot';
+    const n=document.createElement('span'); n.textContent=s.name;
+    const x=document.createElement('button'); x.textContent='✕'; x.setAttribute('aria-label','Remove '+s.name); x.onclick=()=>kickUser(s);
+    c.append(d,n,x); list.appendChild(c);
+  }
+  $('lobby-title').textContent = online ? online+(online===1?' student has joined':' students have joined') : 'Waiting for students';
+  const b=$('btn-start'); b.disabled = !online;
+  b.textContent = online ? 'Start session ('+online+')' : 'Start session';
+}
+function startSession(){
+  if(T.started) return;
+  T.started = true;
+  try{ localStorage.setItem('classboard_started', T.code); }catch(e){}
+  for(const s of T.students.values()) if(s.conn?.open){ try{ s.conn.send({t:'lobby',on:false}); }catch(e){} }
+  applyMode(); updateCount();
+}
+
+function renderEmpty(){
+  let box = $('teacher-start');
+  if(!box){ box=document.createElement('div'); box.className='empty'; box.id='teacher-start'; $('grid').prepend(box); }
+  box.innerHTML = `
+    <div class="qr-box" id="qr-inline"></div>
+    <div>
+      <h2>Waiting for students</h2>
+      <p>Scan this QR code with the iPad camera, or go to the link and enter room code <strong>${T.code}</strong>.</p>
+      <div class="link-box" id="link-box" title="Click to copy">${joinUrl()}</div>
+    </div>`;
+  new QRCode($('qr-inline'), { text: joinUrl(), width:220, height:220, correctLevel: QRCode.CorrectLevel.M });
+  $('link-box').onclick = () => { navigator.clipboard?.writeText(joinUrl()); toast('Link copied'); };
+  box.classList.toggle('hidden', T.students.size>0);
+}
+function updateCount(){
+  const online=[...T.students.values()].filter(s=>s.online).length;
+  $('count-chip').textContent = online + (online===1?' student':' students');
+  const box=$('teacher-start'); if(box) box.classList.toggle('hidden', T.students.size>0);
+  updateLobbyList();
+}
+
+function showQrModal(){
+  const m=document.createElement('div'); m.className='modal';
+  m.innerHTML=`<div class="modal-card qr-big"><div class="qr-box" id="qr-big"></div>
+    <div class="code">${T.code}</div><div style="color:var(--chalk-dim)">Scan with the iPad camera to join</div>
+    <button class="btn">Close</button></div>`;
+  document.body.appendChild(m);
+  new QRCode(m.querySelector('#qr-big'), { text: joinUrl(), width:360, height:360, correctLevel: QRCode.CorrectLevel.M });
+  const close=()=>m.remove(); m.querySelector('button').onclick=close; m.onclick=e=>{ if(e.target===m) close(); };
+}
+
+function endRoom(){
+  if(!confirm('End the room? All students will be disconnected.')) return;
+  for(const s of T.students.values()){ try{ s.conn?.send({t:'kick'}); }catch(e){} if(s.rec) stopRecording(s); }
+  try{ T.peer.destroy(); }catch(e){}
+  localStorage.removeItem('classboard_room'); localStorage.removeItem('classboard_locks'); localStorage.removeItem('classboard_started');
+  location.href = location.pathname;
+}
+
+/* ---- incoming student connection ---- */
+function onStudentConnection(conn){
+  const md = conn.metadata || {};
+  const cid = String(md.clientId||conn.peer).slice(0,40);
+  const name = String(md.name||'Student').trim().slice(0,24) || 'Student';
+
+  conn.on('open', () => {
+    let s = T.students.get(cid);
+    if(s){
+      if(s.conn && s.conn!==conn && s.conn.open){ s.conn.__replaced=true; try{ s.conn.close(); }catch(e){} }
+      s.conn=conn; s.online=true; s.name=name;
+    } else {
+      s = { cid, name, conn, online:true, items:[], tItems:[], photo:null, rec:null, locked: T.lockAll || T.lockedCids.has(cid) };
+      createTile(s); T.students.set(cid,s);
+    }
+    s.tile.classList.remove('offline');
+    s.tile.querySelector('.tile-name').textContent = s.name;
+    updateCount();
+    updateLockUI();
+    try{
+      conn.send({t:'lobby',on:!T.started});
+      conn.send({t:'lock',on:!!s.locked});
+      if(T.bg) conn.send({t:'bg',data:T.bg});
+      if(s.tItems.length) conn.send({t:'tfull',items:s.tItems});
+      if(T.grid&&T.grid.on) conn.send({t:'grid',cfg:T.grid});
+      if(T.timer.state!=='off') bcastTimer(conn);
+    }catch(e){}
+  });
+  conn.on('data', d => { const s=T.students.get(cid); if(s && s.conn===conn) handleStudentData(s,d); });
+  conn.on('close', () => {
+    const s=T.students.get(cid);
+    if(s && s.conn===conn && !conn.__replaced){ s.online=false; s.tile.classList.add('offline'); updateCount(); }
+  });
+  conn.on('error', e => console.warn('conn error', e));
+}
+
+function handleStudentData(s, d){
+  if(!d || typeof d!=='object' || typeof d.t!=='string') return;
+  if(['full','set','pts','undo','clear','front'].includes(d.t)) s.items=applyOps(s.board,'s',s.items,d.t,d);
+  else if(d.t==='mode') setStudentInf(s,d.inf===true);                   // student ticked / unticked "Unlimited canvas"
+  else if(d.t==='cam'){ s.cam=cleanCam(d); updateStudentCam(s); }        // the part of the canvas the student is looking at
+  else if(d.t==='sbg'){                                   // student chose (or removed) their own photo
+    s.photo = (typeof d.data==='string' && d.data.length<4000000 && /^data:image\/(jpeg|png|webp);base64,/.test(d.data)) ? d.data : null;
+    setBg(s.board, s.photo || T.bg);
+  }
+}
+
+
+/* ---- unlimited canvas: the teacher's tile follows whatever part the student is looking at ---- */
+function applyTileCam(s){
+  const b=s.board; if(!b || s.tile.classList.contains('max')) return;        // a maximised screen has its own camera
+  const same=(b.cw===W && b.ch===H);
+  if(!s.inf){
+    if(b.cam || !same){ b.cam=null; b.cw=W; b.ch=H; s.canvas.width=W; s.canvas.height=H; b.layers={s:null,t:null,sm:null,tm:null}; b.redrawNow(); }
+    return;
+  }
+  if(!same){ b.cw=W; b.ch=H; s.canvas.width=W; s.canvas.height=H; b.layers={s:null,t:null,sm:null,tm:null}; }
+  b.cam=camContain(s.cam,W,H);
+  same ? b.requestRedraw() : b.redrawNow();
+}
+function updateStudentCam(s){
+  if(!s.inf) return;
+  if(s.tile.classList.contains('max')){ if(s.view && s.follow) s.view.followRect(s.cam); }
+  else applyTileCam(s);
+}
+function setStudentInf(s,on){
+  if(s.inf===on) return;
+  s.inf=on; s.tile.querySelector('.inf-badge').classList.toggle('hidden',!on);
+  const wasMax=s.tile.classList.contains('max');
+  if(wasMax) exitMax(); else applyTileCam(s);
+  if(wasMax) enterMax(s);                                                    // re-open in the matching mode
+}
+
+/* random screen: shuffles a highlight across the tiles, then maximises the winner */
+function randomScreen(){
+  if(T.picking) return;
+  let pool=[...T.students.values()].filter(s=>s.online);
+  if(!pool.length){ toast('No students are connected yet'); return; }
+  const prev=T.lastPick;
+  if(pool.length>1) pool=pool.filter(s=>s.cid!==prev);
+  const winner=pool[Math.floor(Math.random()*pool.length)];
+  closeMenus();
+  exitMax();
+  const all=[...T.students.values()].filter(s=>s.online);
+  const finish=()=>{
+    all.forEach(s=>s.tile.classList.remove('pick')); T.picking=false;
+    if(!winner.tile.isConnected) return;
+    T.lastPick=winner.cid; enterMax(winner);
+    toast('🎲 '+winner.name, 2500);
+  };
+  if(all.length<2){ finish(); return; }
+  T.picking=true;
+  let i=Math.floor(Math.random()*all.length), step=0, total=12+Math.floor(Math.random()*all.length);
+  const tick=()=>{
+    all.forEach(s=>s.tile.classList.remove('pick'));
+    const last = step>=total;
+    const cur = last ? winner : all[i%all.length];
+    if(cur.tile.isConnected){ cur.tile.classList.add('pick'); cur.tile.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+    if(last){ setTimeout(finish,600); return; }
+    i++; step++;
+    setTimeout(tick, 70 + step*step*1.1);
+  };
+  tick();
+}
+
+/* ---- lock screens: teacher freezes a student's board (one screen, or all of them) ---- */
+function loadLocks(code){
+  try{
+    const v=JSON.parse(localStorage.getItem('classboard_locks')||'null');
+    if(v && v.code===code){ T.lockAll=!!v.all; T.lockedCids=new Set(Array.isArray(v.cids)?v.cids:[]); }
+  }catch(e){}
+}
+function saveLocks(){
+  try{ localStorage.setItem('classboard_locks', JSON.stringify({ code:T.code, all:T.lockAll, cids:[...T.lockedCids] })); }catch(e){}
+}
+function anyLocked(){ return T.lockAll || [...T.students.values()].some(s=>s.locked); }
+function updateLockUI(){
+  const b=$('btn-lock'), on=anyLocked();
+  b.textContent = on ? '🔓 Unlock all' : '🔒 Lock all';
+  b.classList.toggle('lock-on',on);
+}
+function setLocked(s,on,quiet){
+  s.locked=!!on;
+  if(s.locked) T.lockedCids.add(s.cid); else T.lockedCids.delete(s.cid);
+  s.tile.classList.toggle('locked',s.locked);
+  s.tile.querySelector('.lock-badge').classList.toggle('hidden',!s.locked);
+  if(s.conn?.open){ try{ s.conn.send({t:'lock',on:s.locked}); }catch(e){} }
+  if(!quiet){ saveLocks(); updateLockUI(); toast((s.locked?'🔒 Locked ':'🔓 Unlocked ')+s.name+'’s screen'); }
+}
+function lockAll(on){
+  T.lockAll=!!on;
+  if(!on) T.lockedCids.clear();
+  for(const s of T.students.values()) setLocked(s,on,true);
+  saveLocks(); updateLockUI();
+  toast(on ? '🔒 All screens locked' + (T.students.size?'':' (students who join will be locked too)') : '🔓 All screens unlocked');
+}
+
+/* ---- class timer (shown on the hub and on every iPad) ---- */
+function tRem(){ const t=T.timer; return t.state==='running' ? Math.max(0,t.endPerf-performance.now()) : t.remaining; }
+function bcastTimer(only){
+  const t=T.timer, msg={t:'timer',state:t.state,remaining:tRem(),total:t.total};
+  if(only){ try{ only.send(msg); }catch(e){} return; }
+  for(const s of T.students.values()) if(s.conn?.open){ try{ s.conn.send(msg); }catch(e){} }
+}
+function timerUI(){
+  const t=T.timer, el=$('t-timer'); el.classList.toggle('hidden',t.state==='off'); if(t.state==='off') return;
+  const rem=tRem();
+  $('t-timer-text').textContent = t.state==='done' ? 'Time’s up!' : fmtTime(rem);
+  el.classList.toggle('done',t.state==='done'); el.classList.toggle('low',t.state==='running'&&rem<=10000);
+  $('t-timer-pause').textContent = t.state==='paused' ? '▶' : '⏸'; $('t-timer-pause').classList.toggle('hidden',t.state==='done');
+}
+function timerTick(){
+  const t=T.timer;
+  if(t.state==='running' && tRem()<=0){ t.state='done'; t.remaining=0; bcastTimer(); beep(); toast('⏱ Time’s up!',4000); }
+  timerUI();
+}
+function startTimer(ms){ const t=T.timer; t.state='running'; t.total=ms; t.remaining=ms; t.endPerf=performance.now()+ms; bcastTimer(); timerUI(); }
+function toggleTimerPause(){
+  const t=T.timer;
+  if(t.state==='running'){ t.remaining=tRem(); t.state='paused'; }
+  else if(t.state==='paused'){ t.endPerf=performance.now()+t.remaining; t.state='running'; }
+  bcastTimer(); timerUI();
+}
+function stopTimer(){ T.timer.state='off'; bcastTimer(); timerUI(); }
+function timerModal(){
+  const m=document.createElement('div'); m.className='modal';
+  const cur=T.timer.total||300000;
+  m.innerHTML=`<div class="modal-card"><h3>Set timer</h3>
+    <div class="row" style="justify-content:flex-start;align-items:center;margin:0">
+      <input class="text" id="tm-m" type="number" min="0" max="180" style="width:90px" aria-label="Minutes"><span>min</span>
+      <input class="text" id="tm-s" type="number" min="0" max="59" style="width:90px" aria-label="Seconds"><span>sec</span></div>
+    <div class="row" style="justify-content:flex-start;flex-wrap:wrap" id="tm-pre"></div>
+    <p style="color:var(--chalk-dim);margin:8px 0 0">Starts on the hub and on every student’s iPad.</p>
+    <div class="row"><button class="btn ghost" data-a="c">Cancel</button><button class="btn" data-a="go">Start timer</button></div></div>`;
+  document.body.appendChild(m);
+  const mi=m.querySelector('#tm-m'), se=m.querySelector('#tm-s');
+  const setv=ms=>{ mi.value=Math.floor(ms/60000); se.value=Math.floor(ms/1000)%60; };
+  setv(cur);
+  [1,2,3,5,10,15,20].forEach(n=>{ const b=document.createElement('button'); b.className='btn ghost'; b.textContent=n+' min'; b.onclick=()=>setv(n*60000); m.querySelector('#tm-pre').appendChild(b); });
+  const close=()=>m.remove(); m.querySelector('[data-a=c]').onclick=close; m.onclick=e=>{ if(e.target===m) close(); };
+  const go=()=>{ const ms=((+mi.value||0)*60+(+se.value||0))*1000; if(ms<1000){ toast('Set a time first'); return; } close(); startTimer(ms); };
+  m.querySelector('[data-a=go]').onclick=go; mi.focus(); mi.select();
+  m.addEventListener('keydown',e=>{ if(e.key==='Enter') go(); });
+}
+
+/* ---- grid overlay for student maths books ---- */
+function applyGrid(cfg){
+  T.grid=cleanGrid(cfg);
+  for(const s of T.students.values()){
+    setGrid(s.board,T.grid);
+    if(s.conn?.open){ try{ s.conn.send({t:'grid',cfg:T.grid}); }catch(e){} }
+  }
+}
+function gridPanel(){
+  const old=document.getElementById('gp'); if(old){ old.remove(); return; }
+  const g=T.grid||{on:true,type:'square',size:40,color:'#3b82f6',alpha:.35,major:5,axes:'none'}; if(!g.axes) g.axes='none';
+  const p=document.createElement('div'); p.id='gp'; p.className='gp';
+  p.innerHTML=`<h3>Maths book grid <button class="btn ghost" data-a="x" style="padding:4px 10px" aria-label="Close">✕</button></h3>
+    <div class="seg" id="g-on"><button data-v="1">On</button><button data-v="0">Off</button></div>
+    <label>Style</label><div class="seg" id="g-type"><button data-v="square">Squares</button><button data-v="lines">Lines</button><button data-v="dots">Dots</button></div>
+    <label>Coordinate graph (with axes and numbers)</label><div class="seg" id="g-axes"><button data-v="none">None</button><button data-v="full">Full (±)</button><button data-v="quarter">Quarter (+)</button></div>
+    <label>Size</label><input type="range" id="g-size" min="16" max="160">
+    <label>Colour</label><div class="sws" id="g-col"></div>
+    <label>Line strength</label><input type="range" id="g-alpha" min="10" max="90">
+    <label>Darker line every</label><div class="seg" id="g-major"><button data-v="0">None</button><button data-v="5">5</button><button data-v="10">10</button></div>`;
+  document.body.appendChild(p);
+  const COLS=['#3b82f6','#6b7280','#22c55e','#ef4444','#111111'];
+  const cw=p.querySelector('#g-col');
+  COLS.forEach(c=>{ const b=document.createElement('button'); b.className='sw'; b.style.background=c; b.dataset.v=c; b.setAttribute('aria-label','Grid colour '+c); cw.appendChild(b); });
+  const refresh=()=>{
+    p.querySelectorAll('#g-on button').forEach(b=>b.setAttribute('aria-pressed',(b.dataset.v==='1')===g.on));
+    p.querySelectorAll('#g-type button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===g.type));
+    p.querySelectorAll('#g-major button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.v===g.major));
+    p.querySelectorAll('#g-axes button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===g.axes));
+    p.querySelector('#g-type').style.opacity=g.axes==='none'?1:.4;
+    p.querySelectorAll('#g-col button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===g.color));
+    p.querySelector('#g-size').value=g.size; p.querySelector('#g-alpha').value=Math.round(g.alpha*100);
+  };
+  const push=()=>{ refresh(); applyGrid(g); };
+  p.querySelectorAll('#g-on button').forEach(b=>b.onclick=()=>{ g.on=b.dataset.v==='1'; push(); });
+  p.querySelectorAll('#g-type button').forEach(b=>b.onclick=()=>{ g.type=b.dataset.v; g.on=true; push(); });
+  p.querySelectorAll('#g-axes button').forEach(b=>b.onclick=()=>{ g.axes=b.dataset.v; g.on=true; if(g.axes!=='none'&&g.type!=='square') g.type='square'; push(); });
+  p.querySelectorAll('#g-major button').forEach(b=>b.onclick=()=>{ g.major=+b.dataset.v; g.on=true; push(); });
+  p.querySelectorAll('#g-col button').forEach(b=>b.onclick=()=>{ g.color=b.dataset.v; g.on=true; push(); });
+  p.querySelector('#g-size').oninput=e=>{ g.size=+e.target.value; g.on=true; push(); };
+  p.querySelector('#g-alpha').oninput=e=>{ g.alpha=+e.target.value/100; g.on=true; push(); };
+  p.querySelector('[data-a=x]').onclick=()=>p.remove();
+  refresh(); push();                                   // opening the panel switches the grid on
+}
+
+/* ---- background picture (worksheets, diagrams, photos to annotate) ---- */
+function loadImageFile(file){
+  if(!file || !file.type.startsWith('image/')){ toast('Please choose an image file (JPG or PNG)'); return; }
+  const url=URL.createObjectURL(file), img=new Image();
+  img.onload=()=>{
+    const k=Math.min(1,1600/Math.max(img.width,img.height));
+    const c=document.createElement('canvas'); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k);
+    const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,c.width,c.height); x.drawImage(img,0,0,c.width,c.height);
+    let q=.88, data=c.toDataURL('image/jpeg',q);
+    while(data.length>1000000 && q>.5){ q-=.08; data=c.toDataURL('image/jpeg',q); }
+    URL.revokeObjectURL(url); bgModal(data);
+  };
+  img.onerror=()=>{ URL.revokeObjectURL(url); toast('Couldn’t read that image. HEIC isn’t supported, so use JPG or PNG.',5000); };
+  img.src=url;
+}
+function bgModal(data,onDone){
+  const m=document.createElement('div'); m.className='modal';
+  m.innerHTML=`<div class="modal-card"><h3>Use this as the whiteboard?</h3>
+    <img class="bg-prev" alt="Preview of the background image">
+    <p style="color:var(--chalk-dim);margin:12px 0 0">Students will draw on top of it. What should happen to what they’ve already drawn?</p>
+    <div class="row" style="flex-wrap:wrap"><button class="btn ghost" data-a="cancel">Cancel</button>
+    <button class="btn ghost" data-a="keep">Keep drawings</button><button class="btn" data-a="clear">Clear drawings</button></div></div>`;
+  m.querySelector('img').src=data;
+  document.body.appendChild(m);
+  const close=()=>m.remove();
+  m.querySelector('[data-a=cancel]').onclick=close;
+  m.querySelector('[data-a=keep]').onclick=()=>{ close(); applyBg(data,false); if(onDone) onDone(); };
+  m.querySelector('[data-a=clear]').onclick=()=>{ close(); applyBg(data,true); if(onDone) onDone(); };
+  m.onclick=e=>{ if(e.target===m) close(); };
+}
+function applyBg(data, clear, reset){
+  T.bg=data; $('btn-bg-off').classList.toggle('hidden',!data);
+  $('btn-bg').textContent = data ? 'Change background' : 'Set background';
+  for(const s of T.students.values()){
+    if(data||reset) s.photo=null;
+    setBg(s.board,s.photo||data);
+    if(clear){ s.items=[]; s.tItems=[]; rebuild(s.board,'s',s.items); rebuild(s.board,'t',s.tItems); }
+    if(s.conn?.open){ try{ s.conn.send({t:'bg',data,clear:!!clear,fresh:!!data,reset:!!reset}); }catch(e){} }
+  }
+  toast(reset ? '🧹 All screens cleared' : data ? 'Background sent to students' : 'Background removed');
+}
+
+/* ---- send image as a browser tab (reference only, not drawable) ---- */
+function fileToData(file,maxSide,limit,cb){
+  if(!file || !file.type.startsWith('image/')){ toast('Please choose an image file (JPG or PNG)'); return; }
+  const url=URL.createObjectURL(file), img=new Image();
+  img.onload=()=>{
+    const k=Math.min(1,maxSide/Math.max(img.width,img.height));
+    const c=document.createElement('canvas'); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k);
+    const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,c.width,c.height); x.drawImage(img,0,0,c.width,c.height);
+    let q=.9, data=c.toDataURL('image/jpeg',q);
+    while(data.length>limit && q>.5){ q-=.08; data=c.toDataURL('image/jpeg',q); }
+    URL.revokeObjectURL(url); cb(data);
+  };
+  img.onerror=()=>{ URL.revokeObjectURL(url); toast('Couldn’t read that image. HEIC isn’t supported, so use JPG or PNG.',5000); };
+  img.src=url;
+}
+function tabModal(data){
+  const m=document.createElement('div'); m.className='modal';
+  m.innerHTML=`<div class="modal-card"><h3>Send as a new tab?</h3>
+    <img class="bg-prev" alt="Preview of the image">
+    <p style="color:var(--chalk-dim);margin:12px 0 0">Each student gets this image to open in its own browser tab for reference. They can’t draw on it and can close it when done.</p>
+    <div class="row"><button class="btn ghost" data-a="cancel">Cancel</button><button class="btn" data-a="send">Send to all students</button></div></div>`;
+  m.querySelector('img').src=data; document.body.appendChild(m);
+  const close=()=>m.remove();
+  m.querySelector('[data-a=cancel]').onclick=close; m.onclick=e=>{ if(e.target===m) close(); };
+  m.querySelector('[data-a=send]').onclick=()=>{ close(); sendTab(data); };
+}
+function sendTab(data){
+  let n=0;
+  for(const s of T.students.values()){ if(s.conn?.open){ try{ s.conn.send({t:'tab',data}); n++; }catch(e){} } }
+  toast(n ? 'Image sent to '+n+(n===1?' student':' students') : 'No students are connected');
+}
+
+/* ---- draw & send: teacher draws on a blank (or current-background) board, then sends it to every student ---- */
+function openDrawSend(){
+  if(document.getElementById('ds')) return;
+  const ov=document.createElement('div'); ov.id='ds'; ov.className='ds';
+  ov.innerHTML='<div class="ds-head"><strong>Draw &amp; send</strong>'+
+    '<label class="ds-opt hidden"><input type="checkbox" checked> Draw on the current background</label><div class="spacer"></div>'+
+    '<button class="btn ghost" data-a="cancel">Cancel</button><button class="btn ghost" data-a="tab">Send as image tab</button><button class="btn" data-a="send">Send as background</button></div>'+
+    '<div class="toolbar ds-tools"></div><div class="ds-vp"><canvas width="'+W+'" height="'+H+'"></canvas></div>';
+  document.body.appendChild(ov);
+  const canvas=ov.querySelector('canvas'), vp=ov.querySelector('.ds-vp');
+  const board=makeBoard(canvas), D={items:[]}, view=makeView(vp,canvas);
+  const chk=ov.querySelector('input'), opt=ov.querySelector('.ds-opt');
+  const syncBg=()=>setBg(board, chk.checked ? T.bg : null);
+  if(T.bg){ opt.classList.remove('hidden'); syncBg(); }
+  chk.onchange=syncBg;
+  const editor=createEditor({ canvas, vp, board, key:'s', view, E:T.E, getItems:()=>D.items, setItems:a=>{ D.items=a; }, send:()=>{} });
+  buildToolbar(ov.querySelector('.ds-tools'),T.E,view,{
+    undo:()=>editor.undo(), clearLabel:'Clear all',
+    clear:()=>{ if(D.items.length && confirm('Clear everything you drew?')) editor.clearAll(); },
+    mathTools:()=>toggleMathTray(editor,ov)
+  });
+  const ro=new ResizeObserver(()=>view.fit()); ro.observe(vp);
+  const close=()=>{ closeMathTray(); ro.disconnect(); editor.destroy(); ov.remove(); };
+  ov.querySelector('[data-a=cancel]').onclick=()=>{ if(D.items.length && !confirm('Discard this drawing?')) return; close(); };
+  ov.querySelector('[data-a=tab]').onclick=()=>{
+    if(!D.items.length){ toast('Draw something first'); return; }
+    editor.deselect(); tabModal(canvas.toDataURL('image/jpeg',.9));
+  };
+  ov.querySelector('[data-a=send]').onclick=()=>{
+    if(!D.items.length){ toast('Draw something first'); return; }
+    editor.deselect();
+    let q=.9, data=canvas.toDataURL('image/jpeg',q);
+    while(data.length>1000000 && q>.5){ q-=.08; data=canvas.toDataURL('image/jpeg',q); }
+    bgModal(data, close);
+  };
+}
+
+/* ---- tiles ---- */
+function createTile(s){
+  const t=document.createElement('div'); t.className='tile'; t.dataset.cid=s.cid;
+  t.innerHTML=`
+    <div class="tile-head">
+      <span class="dot"></span><span class="tile-name"></span>
+      <span class="lock-badge hidden">🔒 LOCKED</span><span class="inf-badge hidden" title="This student is using the unlimited canvas">∞</span><span class="rec-badge hidden">● REC</span>
+      <button class="kebab" aria-label="Screen options" aria-haspopup="true">⋮</button>
+    </div>
+    <div class="tile-body"><canvas width="${W}" height="${H}"></canvas><div class="offline-badge">Disconnected</div></div>`;
+  $('grid').appendChild(t);
+  s.tile=t; s.canvas=t.querySelector('canvas'); s.board=makeBoard(s.canvas);
+  s.board.getItems=k=>k==='s'?s.items:s.tItems; s.inf=false; s.follow=true; s.cam={cx:W/2,cy:H/2,vw:W,vh:H};
+  if(T.bg) setBg(s.board,T.bg);
+  if(T.grid&&T.grid.on) setGrid(s.board,T.grid);
+  t.querySelector('.tile-name').textContent=s.name;
+  if(s.locked){ t.classList.add('locked'); t.querySelector('.lock-badge').classList.remove('hidden'); }
+  t.querySelector('.kebab').onclick = e => { e.stopPropagation(); openMenu(s); };
+}
+
+function closeMenus(){ document.querySelectorAll('.menu').forEach(m=>m.remove()); }
+function openMenu(s){
+  const had = s.tile.querySelector('.menu'); closeMenus(); if(had) return;
+  const isMax = s.tile.classList.contains('max');
+  const menu=document.createElement('div'); menu.className='menu'; menu.setAttribute('role','menu');
+  const items=[
+    [isMax?'Restore screen':'Maximise screen', () => toggleMax(s.cid)],
+    ['Message screen…', () => messageDialog(s)],
+    [s.locked?'Unlock screen':'Lock screen', () => setLocked(s,!s.locked)],
+    [s.rec?'Stop recording':'Screen record', () => s.rec ? stopRecording(s) : startRecording(s)],
+    ...(s.tItems.length ? [['Remove my drawings', () => removeTeacherDrawings(s)]] : []),
+    null,
+    ['Kick user', () => kickUser(s), 'danger']
+  ];
+  for(const it of items){
+    if(!it){ menu.appendChild(document.createElement('hr')); continue; }
+    const b=document.createElement('button'); b.textContent=it[0]; b.setAttribute('role','menuitem');
+    if(it[2]) b.className=it[2];
+    b.onclick = e => { e.stopPropagation(); closeMenus(); it[1](); };
+    menu.appendChild(b);
+  }
+  s.tile.appendChild(menu);
+}
+
+/* 1. maximise (with teacher drawing tools, zoom and pan) */
+function sendToStudent(s,o){ if(s.conn?.open){ try{ s.conn.send({...o,t:'t'+o.t}); }catch(e){} } }
+function removeTeacherDrawings(s){
+  s.tItems=[]; rebuild(s.board,'t',s.tItems); sendToStudent(s,{t:'clear'});
+  toast('Removed your drawings from '+s.name+'’s screen');
+}
+function enterMax(s){
+  exitMax();
+  s.tile.classList.add('max');
+  const body=s.tile.querySelector('.tile-body');
+  const tb=document.createElement('div'); tb.className='toolbar max-tools'; s.tile.insertBefore(tb,body);
+  s.view=makeView(body,s.canvas,s.board);
+  s.editor=createEditor({ canvas:s.canvas, vp:body, board:s.board, key:'t', view:s.view, E:T.E,
+    getItems:()=>s.tItems, setItems:a=>{ s.tItems=a; }, send:o=>sendToStudent(s,o) });
+  buildToolbar(tb,T.E,s.view,{ undo:()=>s.editor.undo(), clearLabel:'Remove my drawings', clear:()=>removeTeacherDrawings(s), mathTools:()=>toggleMathTray(s.editor,s.tile),
+    follow: s.inf ? ()=>{ s.follow=true; s.view.followRect(s.cam); s.view.followUI(false); } : null });
+  s.ro=new ResizeObserver(()=>s.view.fit()); s.ro.observe(body);
+  if(s.inf){                                          // unlimited canvas: open on the part the student is working on, and keep following until the teacher moves
+    s.follow=true; s.view.setInf(true,s.cam);
+    s.view.onUser=()=>{ if(s.follow){ s.follow=false; s.view.followUI(true); } };
+  }
+}
+function exitMax(){
+  closeMathTray();
+  document.querySelectorAll('.tile.max').forEach(t=>{
+    const s=T.students.get(t.dataset.cid);
+    if(s){ s.ro?.disconnect(); s.editor?.destroy(); s.canvas.style.cssText=''; s.canvas.classList.remove('inf'); s.view=s.editor=s.ro=null; }
+    t.querySelector('.max-tools')?.remove();
+    t.classList.remove('max');
+    if(s) applyTileCam(s);                            // back to the 4:3 gallery tile
+  });
+}
+function toggleMax(cid){
+  const s=T.students.get(cid); if(!s) return;
+  if(s.tile.classList.contains('max')) exitMax();
+  else { enterMax(s); toast('Draw on this screen with the tools above. Esc to go back.', 3000); }
+}
+
+/* 2. message */
+function messageDialog(s){
+  const m=document.createElement('div'); m.className='modal';
+  m.innerHTML=`<div class="modal-card"><h3>Message to <span id="mn"></span></h3>
+    <textarea class="text" rows="4" maxlength="400" placeholder="Type a message…" aria-label="Message"></textarea>
+    <div class="row"><button class="btn ghost" data-a="cancel">Cancel</button><button class="btn" data-a="send">Send</button></div></div>`;
+  m.querySelector('#mn').textContent=s.name;
+  document.body.appendChild(m);
+  const ta=m.querySelector('textarea'); ta.focus();
+  const close=()=>m.remove();
+  m.querySelector('[data-a=cancel]').onclick=close;
+  m.onclick=e=>{ if(e.target===m) close(); };
+  const send=()=>{
+    const text=ta.value.trim(); if(!text) return;
+    if(!s.conn?.open){ toast(s.name+' is disconnected'); return; }
+    s.conn.send({t:'msg', text}); toast('Message sent to '+s.name); close();
+  };
+  m.querySelector('[data-a=send]').onclick=send;
+  ta.addEventListener('keydown',e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } });
+}
+
+/* 3. record */
+function pickMime(){
+  const c=['video/mp4;codecs=avc1.42E01E','video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+  return c.find(m=>window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
+}
+function startRecording(s){
+  if(!window.MediaRecorder){ toast('This browser can’t record video'); return; }
+  const mime=pickMime();
+  const rc=document.createElement('canvas'); rc.width=1280; rc.height=960;
+  const rctx=rc.getContext('2d');
+  const paint=()=>{ const sw=s.canvas.width, sh=s.canvas.height, k=Math.min(rc.width/sw,rc.height/sh), w=sw*k, h=sh*k;
+    rctx.fillStyle='#fff'; rctx.fillRect(0,0,rc.width,rc.height); rctx.drawImage(s.canvas,(rc.width-w)/2,(rc.height-h)/2,w,h); };
+  paint();
+  const timer=setInterval(paint, 33);
+  const stream=rc.captureStream(30);
+  let mr;
+  try{ mr=new MediaRecorder(stream, mime?{mimeType:mime, videoBitsPerSecond:4_000_000}:{}); }
+  catch(e){ clearInterval(timer); toast('Recording failed to start'); return; }
+  const chunks=[];
+  mr.ondataavailable=e=>{ if(e.data && e.data.size) chunks.push(e.data); };
+  mr.onstop=()=>{
+    clearInterval(timer);
+    const type=mr.mimeType||mime||'video/webm';
+    const ext=type.includes('mp4')?'mp4':'webm';
+    const blob=new Blob(chunks,{type});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    const stamp=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+    a.download=`${s.name.replace(/[^\w-]+/g,'_')}-${stamp}.${ext}`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+    if(ext!=='mp4') toast('Saved as WebM – this browser can’t make MP4. Use Safari or Chrome 126+ for MP4.',6000);
+    else toast('Recording saved');
+  };
+  mr.start(1000);
+  s.rec=mr; s.tile.querySelector('.rec-badge').classList.remove('hidden');
+  toast('Recording '+s.name+'… keep this tab visible');
+}
+function stopRecording(s){
+  if(!s.rec) return;
+  try{ s.rec.stop(); }catch(e){}
+  s.rec=null; s.tile.querySelector('.rec-badge').classList.add('hidden');
+}
+
+/* 4. kick */
+function kickUser(s){
+  if(!confirm('Remove '+s.name+' from the room?')) return;
+  if(s.rec) stopRecording(s);
+  if(s.tile.classList.contains('max')) exitMax();
+  try{ s.conn?.send({t:'kick'}); }catch(e){}
+  setTimeout(()=>{ try{ s.conn?.close(); }catch(e){} }, 150);
+  if(s.conn) s.conn.__replaced=true;
+  s.tile.remove(); T.students.delete(s.cid); updateCount();
+  toast(s.name+' was removed');
+}
+
+/* =====================================================================
+   STUDENT
+   ===================================================================== */
+function initStudent(code){
+  hide('landing'); show('join');
+  $('join-room').textContent=code;
+  const saved=sessionStorage.getItem('classboard_name'); if(saved) $('name-in').value=saved;
+  let clientId=sessionStorage.getItem('classboard_cid'); if(!clientId){ clientId=rid(12); sessionStorage.setItem('classboard_cid',clientId); }
+
+  /* whiteboard state */
+  const canvas=$('sc'); canvas.width=W; canvas.height=H;
+  const board=makeBoard(canvas);
+  const S={ locked:false, items:[], tItems:[], kicked:false, joined:false, name:'', peer:null, conn:null, photo:null, teacherBg:null };
+  const E={ tool:'pen', color:COLORS[0], size:6, fill:false };
+  const send=o=>{ try{ if(S.conn && S.conn.open) S.conn.send(o); }catch(e){} };
+  const view=makeView($('stage'),canvas,board);
+  board.getItems=k=>k==='s'?S.items:S.tItems;
+  const editor=createEditor({ canvas, vp:$('stage'), board, key:'s', view, E,
+    getItems:()=>S.items, setItems:a=>{ S.items=a; }, send });
+  buildToolbar($('tb'),E,view,{
+    snapUI:true,
+    infToggle:on=>setInf(on),
+    undo:()=>editor.undo(),
+    clearLabel:'Clear',
+    clear:()=>{ if(S.locked || !S.items.length) return; if(!confirm('Clear your whiteboard?')) return; if(S.locked) return; editor.clearAll(); },
+    mathTools:()=>toggleMathTray(editor,$('student')),
+    photo:()=>$('photo-in').click(),
+    removePhoto:()=>{ if(S.locked) return; S.photo=null; setBg(board,S.teacherBg); send({t:'sbg',data:null}); view.photoUI(false); toast('Photo removed'); }
+  });
+  board.onGrid=on=>{ if(view.gridUI) view.gridUI(on); };   // show the Snap button only while a grid is on
+
+  /* unlimited canvas: the student's choice. Marks keep their coordinates; only the camera changes. The teacher is told which part is on screen. */
+  let camT=0, camLast=0;
+  function sendCam(){
+    clearTimeout(camT); camT=0; const cm=board.cam; if(!view.inf || !cm) return;
+    camLast=performance.now();
+    send({t:'cam',cx:cm.x+board.cw/(2*cm.z),cy:cm.y+board.ch/(2*cm.z),vw:board.cw/cm.z,vh:board.ch/cm.z});
+  }
+  function camSoon(){ if(!view.inf) return; const d=performance.now()-camLast; if(d>=80) sendCam(); else if(!camT) camT=setTimeout(sendCam,80-d); }
+  const tbChange=view.onChange; view.onChange=v=>{ if(tbChange) tbChange(v); camSoon(); };
+  function outsidePage(){
+    return [...S.items,...S.tItems].some(it=>{ if(it.eraser) return false; const b=itemBounds(it); return b.x<-2||b.y<-2||b.x+b.w>W+2||b.y+b.h>H+2; });
+  }
+  function setInf(on){
+    on=!!on; if(S.locked) return false;
+    if(on===view.inf) return true;
+    if(!on && outsidePage() && !confirm('Some of your work is outside the page, so it will be hidden in Page mode (it isn’t deleted: tick Unlimited canvas again to see it). Switch anyway?')) return false;
+    editor.deselect();
+    view.setInf(on);
+    send({t:'mode',inf:on});
+    if(on){ sendCam(); toast('Unlimited canvas on. Drag with two fingers (or use ✋ Pan) to move around, and pinch to zoom.',4500); }
+    return true;
+  }
+  $('photo-in').onchange=e=>{
+    const f=e.target.files[0]; e.target.value=''; if(!f || S.locked) return;
+    fileToData(f,1800,1300000,data=>{
+      if(S.locked) return;
+      S.photo=data; setBg(board,data); send({t:'sbg',data}); view.photoUI(true);
+      toast('Photo added. Draw on it, and use zoom to look closely.',3500);
+    });
+  };
+  ['gesturestart','gesturechange','dblclick'].forEach(ev=>document.addEventListener(ev,e=>e.preventDefault()));
+  document.addEventListener('touchmove',e=>{ if(e.target===canvas) e.preventDefault(); },{passive:false});
+  const fit=()=>view.fit();
+  new ResizeObserver(fit).observe($('stage')); window.addEventListener('resize',fit);
+
+  /* focus mode: hide the toolbar and/or go full screen so the board gets the whole display */
+  const tbEl=document.querySelector('#student .toolbar'), fsEl=document.documentElement;
+  /* On touch devices (iPad) the browser's own full screen exits when you swipe down from the top edge, which fights with drawing downwards
+     and can't be switched off. So there "Full screen" is an in-app mode (toolbar folds away, the board fills the screen) that only the button exits. */
+  const coarse=matchMedia('(pointer:coarse)').matches; let pseudoFs=false;
+  const fsOk=coarse || !!(document.fullscreenEnabled||document.webkitFullscreenEnabled);
+  const realFs=()=>!!(document.fullscreenElement||document.webkitFullscreenElement);
+  const isFs=()=>pseudoFs||realFs();
+  function setToolbar(hidden){
+    tbEl.classList.toggle('hidden',hidden); $('tb-float').classList.toggle('hidden',!hidden);
+    $('btn-hide-tb').textContent='▲ Hide toolbar';
+  }
+  function toggleFs(){
+    if(coarse){
+      pseudoFs=!pseudoFs; setToolbar(pseudoFs); fsLabel(); view.fit();
+      if(pseudoFs) toast('Full screen on. Tap ✕ to exit. For no browser bars at all, use Share → Add to Home Screen.',4500);
+      return;
+    }
+    try{
+      if(isFs()) (document.exitFullscreen||document.webkitExitFullscreen).call(document);
+      else (fsEl.requestFullscreen||fsEl.webkitRequestFullscreen).call(fsEl);
+    }catch(e){ toast('Full screen isn’t available here. Try Share → Add to Home Screen.',4000); }
+  }
+  function fsLabel(){ $('student').classList.toggle('fs',realFs()); const t=isFs()?'✕ Exit full screen':'⛶ Full screen'; $('btn-fs').textContent=t; $('fl-fs').textContent=isFs()?'✕':'⛶'; }
+  if(fsOk){ $('btn-fs').classList.remove('hidden'); $('fl-fs').classList.remove('hidden'); }
+  $('btn-hide-tb').onclick=()=>setToolbar(true);
+  $('fl-show').onclick=()=>setToolbar(false);
+  $('btn-fs').onclick=$('fl-fs').onclick=toggleFs;
+  ['fullscreenchange','webkitfullscreenchange'].forEach(ev=>document.addEventListener(ev,()=>{ fsLabel(); view.fit(); }));
+
+  /* screenshot: saves exactly what the student is looking at (current zoom and pan) as a PNG */
+  function shotCanvas(){
+    if(view.inf){ const o=document.createElement('canvas'); o.width=board.cw; o.height=board.ch; o.getContext('2d').drawImage(canvas,0,0); return o; }
+    const vp=$('stage'), vw=vp.clientWidth, vh=vp.clientHeight, z=view.z, k=W/view.bw;
+    const x0=Math.max(0,-view.px/z), y0=Math.max(0,-view.py/z);
+    const x1=Math.min(view.bw,(vw-view.px)/z), y1=Math.min(view.bh,(vh-view.py)/z);
+    const out=document.createElement('canvas');
+    out.width=Math.max(1,Math.round((x1-x0)*k)); out.height=Math.max(1,Math.round((y1-y0)*k));
+    const c=out.getContext('2d'); c.fillStyle='#fff'; c.fillRect(0,0,out.width,out.height);
+    c.drawImage(canvas,x0*k,y0*k,(x1-x0)*k,(y1-y0)*k,0,0,out.width,out.height);
+    return out;
+  }
+  async function shareShot(file){
+    if(!(navigator.canShare && navigator.canShare({files:[file]}))) return false;
+    try{ await navigator.share({files:[file]}); return true; }
+    catch(e){ return e && e.name==='AbortError'; }          // cancelled the share sheet counts as handled
+  }
+  function takeShot(){
+    if(S.locked) return;
+    shotCanvas().toBlob(async blob=>{
+      if(!blob){ toast('Couldn’t make the screenshot. Try again.'); return; }
+      const t=new Date(), stamp=String(t.getHours()).padStart(2,'0')+String(t.getMinutes()).padStart(2,'0');
+      const file=new File([blob],'whiteboard-'+stamp+'.png',{type:'image/png'});
+      if(await shareShot(file)) return;                      // iPad: share sheet → Save Image puts it in Photos
+      const url=URL.createObjectURL(blob);
+      const m=document.createElement('div'); m.className='modal';
+      m.innerHTML='<div class="modal-card"><h3>Your screenshot</h3><img class="bg-prev" alt="Screenshot of your whiteboard"><p style="color:var(--chalk-dim);margin:10px 0 0">Press and hold the picture, then tap <strong>Add to Photos</strong> (or <strong>Save to Photos</strong>).</p><div class="row"><a class="btn" download="'+file.name+'">Download</a><button class="btn ghost" data-a="c">Close</button></div></div>';
+      m.querySelector('img').src=url; m.querySelector('a').href=url;
+      const close=()=>{ m.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); };
+      m.querySelector('[data-a=c]').onclick=close; m.onclick=e=>{ if(e.target===m) close(); };
+      document.body.appendChild(m);
+    },'image/png');
+  }
+  $('btn-shot').onclick=$('fl-shot').onclick=takeShot;
+
+  /* screen lock set by the teacher */
+  function setLocked(on){
+    on=!!on; if(S.locked===on) return;
+    S.locked=on; editor.setLocked(on);
+    if(on){ closeMathTray(); document.querySelectorAll('.modal').forEach(m=>m.remove()); }
+    $('lock-overlay').classList.toggle('hidden',!on);
+    tbEl.inert=on; $('tb-float').inert=on;
+    if(!on) toast('🔓 Your teacher unlocked your screen');
+  }
+
+  /* class timer set by the teacher */
+  const TM={ state:'off', remaining:0, endPerf:0 }, pill=$('timer-pill');
+  const tmRem=()=>TM.state==='running' ? Math.max(0,TM.endPerf-performance.now()) : TM.remaining;
+  function tmRender(){
+    if(TM.state==='off'){ pill.className='hidden'; return; }
+    if(TM.state==='running' && tmRem()<=0){ TM.state='done'; beep(); }
+    const rem=tmRem();
+    pill.className = TM.state==='done' ? 'done' : TM.state==='paused' ? 'paused' : rem<=10000 ? 'low' : '';
+    pill.textContent = TM.state==='done' ? 'Time’s up!' : (TM.state==='paused'?'⏸ ':'⏱ ')+fmtTime(rem);
+  }
+  setInterval(tmRender,250);
+
+  /* reference images: opened in their own browser tab */
+  const refs=[];
+  function blobUrlFrom(dataUrl){
+    const m=/^data:(image\/(?:jpeg|png|webp));base64,(.*)$/.exec(dataUrl||''); if(!m) return null;
+    const bin=atob(m[2]), arr=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+    return URL.createObjectURL(new Blob([arr],{type:m[1]}));
+  }
+  function openRef(r){
+    const w=window.open(r.url,'_blank');
+    if(!w){ toast('Your browser blocked the new tab. Allow pop-ups for this site, then tap Open again.',6000); return false; }
+    return true;
+  }
+  function addRef(dataUrl){
+    const url=blobUrlFrom(dataUrl); if(!url) return;
+    const r={url,time:new Date()}; refs.push(r); $('btn-refs').classList.remove('hidden');
+    $('btn-refs').textContent='📎 Images ('+refs.length+')';
+    let w=null; try{ w=window.open(url,'_blank'); }catch(e){}        // works only if pop-ups are allowed
+    if(w) return;
+    const d=document.createElement('div'); d.className='msg';          // otherwise: one tap opens it
+    d.innerHTML='<small>From your teacher</small><div class="body">Your teacher sent an image to look at.</div><button class="btn open">Open image</button><button class="x" aria-label="Dismiss">✕</button>';
+    d.querySelector('.x').onclick=()=>d.remove();
+    d.querySelector('.open').onclick=()=>{ if(openRef(r)) d.remove(); };
+    $('msgs').appendChild(d);
+  }
+  $('btn-refs').onclick=()=>{
+    const m=document.createElement('div'); m.className='modal';
+    m.innerHTML='<div class="modal-card"><h3>Images from your teacher</h3><div class="ref-list"></div><div class="row"><button class="btn ghost" data-a="c">Close</button></div></div>';
+    const list=m.querySelector('.ref-list');
+    refs.slice().reverse().forEach((r,i)=>{
+      const row=document.createElement('div'); row.className='ref-row';
+      const im=document.createElement('img'); im.src=r.url; im.alt='';
+      const lab=document.createElement('span'); lab.textContent='Image '+(refs.length-i)+' · '+r.time.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      const b=document.createElement('button'); b.className='btn'; b.textContent='Open'; b.onclick=()=>openRef(r);
+      row.append(im,lab,b); list.appendChild(row);
+    });
+    document.body.appendChild(m);
+    m.querySelector('[data-a=c]').onclick=()=>m.remove(); m.onclick=e=>{ if(e.target===m) m.remove(); };
+  };
+
+  /* messages from teacher */
+  function showMsg(text){
+    const d=document.createElement('div'); d.className='msg'; d.innerHTML='<small>Message from your teacher</small><div class="body"></div><button class="x" aria-label="Close message">✕</button>';
+    d.querySelector('.body').textContent=text; d.querySelector('.x').onclick=()=>d.remove();
+    $('msgs').appendChild(d);
+  }
+
+  /* connection */
+  function setStatus(txt,bad){ $('status-text').textContent=txt; $('status').classList.toggle('bad',!!bad); $('tb-float').classList.toggle('bad',!!bad); }
+  let attemptTimer=null;
+  function connect(){
+    if(S.kicked) return;
+    try{ S.peer?.destroy(); }catch(e){}
+    const peer=S.peer=new Peer(undefined, PEER_OPTS);
+    peer.on('open',()=>{
+      const conn=S.conn=peer.connect(ID_PREFIX+code,{ metadata:{clientId,name:S.name}, reliable:true });
+      clearTimeout(attemptTimer);
+      attemptTimer=setTimeout(()=>{ if(!conn.open) failed('Couldn’t reach your teacher. Check the room code and your Wi-Fi.'); },12000);
+      conn.on('open',()=>{
+        clearTimeout(attemptTimer);
+        if(!S.joined){ S.joined=true; hide('join'); show('student'); fit(); }
+        setStatus(S.name+' · connected',false);
+        send({t:'full',items:S.items});
+        send({t:'mode',inf:view.inf}); if(view.inf) sendCam();
+        if(S.photo) send({t:'sbg',data:S.photo});
+      });
+      conn.on('data',d=>{
+        if(!d) return;
+        if(d.t==='msg') showMsg(String(d.text||'').slice(0,400));
+        else if(d.t==='lobby'){ $('wait-overlay').classList.toggle('hidden', d.on!==true); }
+        else if(d.t==='lock'){ setLocked(d.on===true); }
+        else if(d.t==='tab'){ addRef(d.data); }
+        else if(d.t==='grid'){ setGrid(board,d.cfg); }
+        else if(d.t==='timer'){
+          if(!['off','running','paused','done'].includes(d.state)) return;
+          const prev=TM.state;
+          TM.state=d.state; TM.remaining=Math.max(0,+d.remaining||0); TM.endPerf=performance.now()+TM.remaining;
+          if(d.state==='done' && prev!=='done') beep();
+          tmRender();
+        }
+        else if(d.t==='bg'){
+          S.teacherBg=d.data||null;
+          if((d.fresh && d.data) || d.reset){ S.photo=null; view.photoUI(false); }   // a new teacher background replaces a student's photo
+          if(!S.photo) setBg(board,S.teacherBg);
+          if(d.clear){ S.items=[]; S.tItems=[]; rebuild(board,'s',S.items); rebuild(board,'t',S.tItems); send({t:'clear'}); }
+        }
+        else if(['tfull','tset','tpts','tundo','tclear','tfront'].includes(d.t)){ S.tItems=applyOps(board,'t',S.tItems,d.t.slice(1),d); }
+        else if(d.t==='kick'){ S.kicked=true; try{peer.destroy();}catch(e){} show('removed'); }
+      });
+      conn.on('close',()=>{ if(S.kicked) return; setStatus('Reconnecting…',true); setTimeout(connect,1500); });
+    });
+    peer.on('disconnected',()=>{ try{peer.reconnect();}catch(e){} });
+    peer.on('error',err=>{
+      if(S.kicked) return;
+      if(err.type==='peer-unavailable') failed('Room not found. Check the code, and make sure your teacher has opened the room.');
+      else if(S.joined){ setStatus('Reconnecting…',true); setTimeout(connect,2500); }
+      else failed('Connection problem ('+err.type+'). Try again.');
+    });
+  }
+  function failed(msg){
+    clearTimeout(attemptTimer);
+    if(S.joined){ setStatus('Teacher not available – retrying…',true); setTimeout(connect,3000); return; }
+    try{S.peer?.destroy();}catch(e){}
+    $('join-err').textContent=msg; $('btn-join').disabled=false; $('btn-join').textContent='Join whiteboard';
+  }
+  const go=()=>{
+    const n=$('name-in').value.trim();
+    if(!n){ $('join-err').textContent='Please enter your name.'; $('name-in').focus(); return; }
+    S.name=n.slice(0,24); sessionStorage.setItem('classboard_name',S.name);
+    $('join-err').textContent=''; $('btn-join').disabled=true; $('btn-join').textContent='Joining…';
+    connect();
+  };
+  $('btn-join').onclick=go;
+  $('name-in').addEventListener('keydown',e=>{ if(e.key==='Enter') go(); });
+}
+</script>
+</body>
+</html>
