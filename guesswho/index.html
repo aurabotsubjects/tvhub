@@ -387,6 +387,7 @@ select.text option{color:#1a0b3a}
     <div class="sp"></div>
     <div class="timer off" id="t-timer">0:00</div>
     <button class="btn ghost" id="btn-mute" title="Sound on/off">🔊</button>
+    <button class="btn pink" id="btn-exit" title="Close this room and go back to the menu">🏠 Exit to menu</button>
     <div class="codechip" id="room-code">······</div>
   </div>
   <div class="tmain">
@@ -651,6 +652,7 @@ function segBuild(el,opts,cur,onPick){ el.innerHTML=''; opts.forEach(([v,label])
 let setupInit=false, setupMode='new';
 function initTeacher(){
   ac();
+  if(/[?&]reset\b/.test(location.search)){ try{ for(const k of Object.keys(localStorage)) if(k==='gw_room'||k.indexOf('gw_state_')===0) localStorage.removeItem(k); }catch(e){} }
   const saved=lsGet('gw_room');
   T.S=loadSettings();
   if(saved&&T.S.prompt){ openHub(saved); return; }   // refresh / come back: straight back into the room
@@ -715,7 +717,7 @@ function wireTeacher(){
   $('btn-finish').onclick=finishRound;
   $('btn-again').onclick=playAgain;
   $('btn-edit').onclick=()=>openSetup('edit');
-  $('btn-end1').onclick=endRoom; $('btn-end2').onclick=endRoom;
+  $('btn-end1').onclick=endRoom; $('btn-exit').onclick=endRoom; $('btn-end2').onclick=endRoom;
   $('btn-add-draw').onclick=addMinute; $('btn-add-guess').onclick=addMinute; $('btn-add-bingo').onclick=addMinute;
   $('btn-end-bingo').onclick=()=>{ if(confirm('End the bingo game now and show the results?')) finishBingo(); };
   $('btn-mute').onclick=()=>{ MUTED=!MUTED; lsSet('gw_muted',MUTED?'1':'0'); $('btn-mute').textContent=MUTED?'🔇':'🔊'; };
@@ -925,9 +927,13 @@ function playAgain(){
   openSetup('edit'); toast('Change the topic if you like, then Save');
 }
 function endRoom(){
-  if(!confirm('End and close this room? Everyone will be disconnected.')) return;
-  bcast({t:'end'}); try{ T.peer&&T.peer.destroy(); }catch(e){}
-  lsDel('gw_room'); lsDel('gw_state_'+T.code); location.href=location.pathname;
+  // works from any screen: closes the room, disconnects everyone, wipes this round and returns to the menu (settings are kept)
+  if(!confirm('Exit to the menu?\n\nThis closes the room, disconnects every student and clears the current game.')) return;
+  try{ bcast({t:'end'}); }catch(e){}
+  try{ T.peer&&T.peer.destroy(); }catch(e){}
+  try{ for(const k of Object.keys(localStorage)) if(k==='gw_room'||k.indexOf('gw_state_')===0) localStorage.removeItem(k); }catch(e){}
+  lsDel('gw_room'); if(T&&T.code) lsDel('gw_state_'+T.code);
+  location.href=location.pathname;
 }
 
 /* ---- bingo ---- */
