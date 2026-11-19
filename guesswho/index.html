@@ -267,6 +267,8 @@ select.text option{color:#1a0b3a}
 .gcard{background:var(--panel);border:2px solid var(--panel-b);border-radius:22px;padding:10px;display:flex;flex-direction:column;gap:8px}
 .gcard .pic{aspect-ratio:4/3}
 .gcard .text{font-size:1.15rem;padding:.55em .8em}
+.slotbar{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:4px 0 8px}
+.slotbar .tbtn{font-size:1rem}
 .gcard.mine{border-color:var(--yellow);opacity:.8}
 .gcard.mine .own{text-align:center;color:var(--yellow);font-weight:700;padding:.5em}
 .gcard.filled{border-color:rgba(43,255,136,.55)}
@@ -369,6 +371,7 @@ select.text option{color:#1a0b3a}
     </div>
     <label class="check"><input type="checkbox" id="set-typo"> Forgive one small typo in a guess (names of 5+ letters)</label>
     <label class="check"><input type="checkbox" id="set-lock"> Lock guessing when the guess timer reaches 0</label>
+    <label class="check"><input type="checkbox" id="set-duo"> 👥 Let two students share one iPad (adds a “next person draws” button, so a class bigger than your iPads can all take part)</label>
   </div>
   <div class="row-actions">
     <button class="btn lime xl" id="btn-open">Open room ▶</button>
@@ -483,10 +486,11 @@ select.text option{color:#1a0b3a}
 
   <div class="sx hidden" id="s-draw">
     <div class="sprompt"><small>Draw this</small><div id="d-prompt"></div></div>
+    <div class="slotbar hidden" id="slotbar-d"></div>
     <div class="cvwrap"><canvas id="cv" width="800" height="600"></canvas><div class="cvlock hidden" id="cv-lock">⏰ Time's up!</div></div>
     <div class="tools" id="colors"></div>
     <div class="tools" id="tools"></div>
-    <div class="namebox"><label for="d-name">Your real name (so others can guess you)</label>
+    <div class="namebox"><label for="d-name" id="d-name-label">Your real name (so others can guess you)</label>
       <input class="text" id="d-name" maxlength="20" autocomplete="off" autocapitalize="words" placeholder="Your name"></div>
     <div class="sticky"><button class="btn lime xl" id="btn-send">Send drawing ✅</button></div>
   </div>
@@ -495,6 +499,8 @@ select.text option{color:#1a0b3a}
     <div class="bigemo">🎉</div>
     <h2>Drawing sent!</h2>
     <p>Waiting for everyone else to finish…</p>
+    <div class="slotbar hidden" id="slotbar-s"></div>
+    <button class="btn yellow hidden" id="btn-add2">➕ Pass the iPad: a second person draws too</button>
     <button class="btn cyan" id="btn-edit-draw">✏️ Edit my drawing</button>
   </div>
 
@@ -631,7 +637,7 @@ if(roomParam) initStudent(roomParam);
 /* =====================================================================
    TEACHER
    ===================================================================== */
-const DEF={mode:'guess',prompt:'',drawMin:5,guessMin:5,bingoMin:10,lines:4,places:4,wait:5,typo:true,view:'grid',slideSec:6,lock:true};
+const DEF={mode:'guess',prompt:'',drawMin:5,guessMin:5,bingoMin:10,lines:4,places:4,wait:5,typo:true,view:'grid',slideSec:6,lock:true,duo:true};
 const LINES=(()=>{ const L=[]; for(let r=0;r<5;r++) L.push([0,1,2,3,4].map(c=>r*5+c)); for(let c=0;c<5;c++) L.push([0,1,2,3,4].map(r=>r*5+c)); L.push([0,6,12,18,24]); L.push([4,8,12,16,20]); return L; })();
 const T={ finishers:[], byPid:new Map(), use:new Map(), ending:false, code:null, peer:null, open:false, S:{...DEF}, phase:'lobby', round:1, players:new Map(), order:[], endsAt:null, endFired:false, locked:false,
   retries:0, view:'grid', slideIdx:0, slideTimer:0, slidePaused:false, galIdx:0, rtab:'scores', results:null, lastBcast:0, lastTick:-1, started:false };
@@ -668,7 +674,7 @@ function openSetup(mode){
   $('set-prompt').value=S.prompt; $('set-draw').value=S.drawMin; $('set-guess').value=S.guessMin;
   $('set-bingo').value=S.bingoMin; $('set-lines').value=S.lines; $('set-places').value=S.places; $('set-wait').value=S.wait;
   S._mode=S.mode; applyModeUI();
-  $('set-typo').checked=!!S.typo; $('set-lock').checked=!!S.lock;
+  $('set-typo').checked=!!S.typo; $('set-lock').checked=!!S.lock; $('set-duo').checked=S.duo!==false;
   segBuild($('set-view'),[['grid','🔲 All pictures'],['slide','🎞️ Slideshow'],['gallery','🖼️ Teacher gallery']],S.view,v=>{ S._view=v; $('set-slide-wrap').style.display=v==='slide'?'':'none'; });
   S._view=S.view; $('set-slide-wrap').style.display=S.view==='slide'?'':'none';
   segBuild($('set-slide'),[[3,'3s'],[5,'5s'],[6,'6s'],[8,'8s'],[12,'12s']],S.slideSec,v=>{ S._slide=v; }); S._slide=S.slideSec;
@@ -689,7 +695,7 @@ function submitSetup(){
   const S=T.S;
   S.mode=S._mode||S.mode; delete S._mode;
   S.bingoMin=+$('set-bingo').value; S.lines=+$('set-lines').value; S.places=+$('set-places').value; S.wait=+$('set-wait').value;
-  S.prompt=p; S.drawMin=+$('set-draw').value; S.guessMin=+$('set-guess').value; S.typo=$('set-typo').checked; S.lock=$('set-lock').checked;
+  S.prompt=p; S.drawMin=+$('set-draw').value; S.guessMin=+$('set-guess').value; S.typo=$('set-typo').checked; S.lock=$('set-lock').checked; S.duo=$('set-duo').checked;
   S.view=S._view||S.view; S.slideSec=+S._slide||6; delete S._view; delete S._slide;
   saveSettings(); hide('setup');
   if(setupMode==='edit'){ show('teacher'); T.view=S.view; renderAll(); bcastState(); toast('Settings saved'); }
@@ -754,7 +760,7 @@ function joinUrl(){ return location.origin+location.pathname+'?room='+T.code; }
 /* ---- keep the room alive across a teacher refresh ---- */
 function saveState(){
   const o={phase:T.phase,round:T.round,order:T.order,endsAt:T.endsAt,locked:T.locked,
-    players:[...T.players.values()].map(p=>({cid:p.cid,name:p.name,pid:p.pid||null,board:p.board||null,marked:[...p.marked],free:p.free||null,place:p.place||0}))};
+    players:[...T.players.values()].map(p=>({cid:p.cid,name:p.name,pid:p.pid||null,board:p.board||null,marked:[...p.marked],free:p.free||[],place:p.place||0}))};
   lsSet('gw_state_'+T.code,JSON.stringify(o));
 }
 function restoreState(code){
@@ -762,15 +768,20 @@ function restoreState(code){
   try{ const o=JSON.parse(lsGet('gw_state_'+code)||'null'); if(!o) return;
     T.phase=(o.phase==='results')?'lobby':(o.phase||'lobby'); T.round=o.round||1; const play=T.phase==='guess'||T.phase==='bingo';
     T.order=play?(o.order||[]):[]; T.endsAt=T.phase==='results'?null:o.endsAt; T.locked=!!o.locked;
-    (o.players||[]).forEach(q=>{ const p=newPlayer(q.cid,q.name,play?q.pid:null); if(T.phase==='bingo'){ p.board=q.board||null; p.marked=new Set(q.marked||[]); p.free=q.free||null; p.place=q.place||0; } T.players.set(q.cid,p); });
+    (o.players||[]).forEach(q=>{ const p=newPlayer(q.cid,q.name,play?q.pid:null); if(T.phase==='bingo'){ p.board=q.board||null; p.marked=new Set(q.marked||[]); p.free=Array.isArray(q.free)?q.free:(q.free?[q.free]:[]); p.place=q.place||0; } T.players.set(q.cid,p); });
     if(play&&T.order.length===0) T.phase='lobby';
     for(const p of T.players.values()){ if(p.pid) T.byPid.set(p.pid,p); }
     if(T.phase==='bingo'){ T.finishers=[...T.players.values()].filter(p=>p.place).sort((x,y)=>x.place-y.place).map(p=>p.cid);
       for(const p of T.players.values()) if(p.board) p.board.forEach(pid=>T.use.set(pid,(T.use.get(pid)||0)+1)); }
   }catch(e){}
 }
-function newPlayer(cid,name,pid){ return {cid,name,pid:pid||null,conn:null,online:false,pic:null,thumb:null,guesses:{},done:false,have:new Set(),board:null,marked:new Set(),free:null,place:0,wrongUntil:0,bOk:0,bBad:0}; }
-function clearP(p){ p.pic=null; p.thumb=null; p.pid=null; p.guesses={}; p.done=false; p.board=null; p.marked=new Set(); p.free=null; p.place=0; p.wrongUntil=0; p.bOk=0; p.bBad=0; }
+function newPlayer(cid,name,pid){ const sub=String(cid).endsWith('~2'); return {sub,dev:sub?String(cid).slice(0,-2):cid,cid,name,pid:pid||null,conn:null,online:false,pic:null,thumb:null,guesses:{},done:false,have:new Set(),board:null,marked:new Set(),free:null,place:0,wrongUntil:0,bOk:0,bBad:0}; }
+function clearP(p){ p.pic=null; p.thumb=null; p.pid=null; p.guesses={}; p.done=false; p.board=null; p.marked=new Set(); p.free=[]; p.place=0; p.wrongUntil=0; p.bOk=0; p.bBad=0; }
+/* second drawer on the same iPad = a hidden 'sub' artist (cid + '~2'): has its own name, picture and pid, but shares the iPad's guesses and bingo card */
+function getSub(p){ return p&&!p.sub?(T.players.get(p.cid+'~2')||null):null; }
+function ensureSub(p){ let q=getSub(p); if(!q&&p&&!p.sub&&T.S.duo&&(T.phase==='draw'||T.phase==='lobby')){ q=newPlayer(p.cid+'~2',''); T.players.set(q.cid,q); } return q; }
+function dname(p){ const q=getSub(p); return q&&q.name?p.name+' & '+q.name:p.name; }
+function dropSubs(){ for(const [k,q] of [...T.players]) if(q.sub) T.players.delete(k); }
 
 /* ---- connections ---- */
 function sendTo(p,o){ try{ if(p.conn&&p.conn.open) p.conn.send(o); }catch(e){} }
@@ -778,7 +789,7 @@ function bcast(o){ for(const p of T.players.values()) sendTo(p,o); }
 function stateFor(p){
   const pids=T.phase==='guess'||T.phase==='results'?T.order.map(cid=>{ const q=T.players.get(cid); return q&&q.pid; }).filter(Boolean):[];
   const st={t:'state',phase:T.phase,mode:T.S.mode,round:T.round,prompt:T.S.prompt,left:tLeft(),locked:T.locked,name:p?p.name:'',
-    hasPic:!!(p&&p.pic),needPic:!!(p&&!p.pic&&T.phase!=='lobby'),pids,mine:p&&p.pid||null,done:!!(p&&p.done)};
+    hasPic:!!(p&&p.pic),needPic:!!(p&&!p.pic&&T.phase!=='lobby'),needPic2:!!(getSub(p)&&!getSub(p).pic&&T.phase!=='lobby'),duo:!!T.S.duo,pids,mine:p?[p,getSub(p)].filter(a=>a&&a.pid).map(a=>a.pid):[],done:!!(p&&p.done)};
   if(T.phase==='bingo'&&p){ st.board=p.board||[]; st.marked=[...p.marked]; st.names={}; for(const pid of p.marked){ const a=T.byPid.get(pid); if(a) st.names[pid]=a.name; } st.place=p.place||0; st.need=T.S.lines; st.wait=T.S.wait*1000; }
   return st;
 }
@@ -813,8 +824,9 @@ function handleStudent(conn,cid,d){
     saveState(); renderAll(); return;
   }
   const p=T.players.get(cid); if(!p||p.conn!==conn) return;
-  if(d.t==='name'){ const n=cleanName(d.name); if(n){ p.name=n; saveState(); renderAll(); } }
-  else if(d.t==='pic') onPic(p,d);
+  if(d.t==='name'){ const n=cleanName(d.name); const tg=d.slot===2?getSub(p):p; if(n&&tg){ tg.name=n; saveState(); renderAll(); } }
+  else if(d.t==='duo'){ if(ensureSub(p)){ saveState(); renderAll(); } }
+  else if(d.t==='pic'){ const tg=d.slot===2?(T.S.duo?ensureSub(p):null):p; if(tg) onPic(tg,d); }
   else if(d.t==='guess'){ if(T.phase==='guess'&&d.pid&&d.round===T.round&&!(T.locked)){ p.guesses[String(d.pid)]=String(d.text||'').slice(0,40); } }
   else if(d.t==='claim') onClaim(p,d);
   else if(d.t==='done'){ if(T.phase==='guess'){ p.done=!!d.on; updateGuessCount(); } }
@@ -860,16 +872,17 @@ function onTimeUp(){
 function startDraw(){
   if(!T.players.size){ toast('Nobody has joined yet!'); return; }
   T.phase='draw'; T.locked=false; startTimer(T.S.drawMin);
-  for(const p of T.players.values()) clearP(p);
+  dropSubs(); for(const p of T.players.values()) clearP(p);
   T.order=[]; T.finishers=[]; T.ending=false; T.byPid=new Map(); T.use=new Map(); bcastState(); saveState(); renderAll();
 }
 function startGuess(){
   const subs=[...T.players.values()].filter(p=>p.pic).length;
-  const missing=[...T.players.values()].filter(p=>!p.pic&&p.online).length;
+  const missing=[...T.players.values()].filter(p=>!p.pic&&(p.sub?(T.players.get(p.dev)||{}).online:p.online)).length;
   if(missing){ bcast({t:'collect'}); }          // ask unfinished drawers to send what they have
   $('btn-start-guess').disabled=true;
   setTimeout(async()=>{
     $('btn-start-guess').disabled=false;
+    for(const [k,q] of [...T.players]) if(q.sub&&!q.pic) T.players.delete(k);   // a 2nd drawer who never sent anything
     const withPic=[...T.players.values()].filter(p=>p.pic);
     if(!withPic.length){ toast('Nobody has sent a drawing yet'); return; }
     const bingo=T.S.mode==='bingo';
@@ -881,7 +894,7 @@ function startGuess(){
     T.byPid=new Map(withPic.map(p=>[p.pid,p]));
     if(bingo){
       T.phase='bingo'; T.locked=false; T.finishers=[]; T.ending=false; T.use=new Map(withPic.map(p=>[p.pid,0]));
-      for(const p of shuffle([...T.players.values()])) assignBoard(p);
+      for(const p of shuffle(playerList())) assignBoard(p);
       startTimer(T.S.bingoMin);
     } else {
     T.phase='guess'; T.locked=false; T.galIdx=0; T.slideIdx=0; T.view=T.S.view; startTimer(T.S.guessMin); }
@@ -905,7 +918,7 @@ function finishRound(){
   bcastState(); saveState(); renderAll();
 }
 function playAgain(){
-  T.round++; T.phase='lobby'; T.endsAt=null; T.locked=false; T.results=null; T.order=[];
+  T.round++; T.phase='lobby'; T.endsAt=null; T.locked=false; T.results=null; T.order=[]; dropSubs();
   for(const p of T.players.values()){ clearP(p); p.have=new Set(); }
   T.finishers=[]; T.ending=false; T.byPid=new Map(); T.use=new Map();
   saveState(); bcastState(); renderAll();
@@ -919,15 +932,15 @@ function endRoom(){
 
 /* ---- bingo ---- */
 function assignBoard(p){
-  // 25 different pictures per card, never your own (unless there are only 25 drawings: then yours is a free square).
+  // 25 different pictures per card, never from your own iPad (unless there are too few drawings: then your own fill the gaps as free squares).
   // Always take the least-used pictures first, so every drawing appears about the same number of times across the class.
   const pool=T.order.map(cid=>T.players.get(cid)).filter(a=>a&&a.pid);
-  const cand=shuffle(pool.filter(a=>a!==p)).sort((x,y)=>(T.use.get(x.pid)||0)-(T.use.get(y.pid)||0));
-  let pick=cand.slice(0,25); let free=null;
-  if(pick.length<25&&p.pic&&p.pid){ pick.push(p); free=p.pid; }
+  const cand=shuffle(pool.filter(a=>a.dev!==p.dev)).sort((x,y)=>(T.use.get(x.pid)||0)-(T.use.get(y.pid)||0));
+  let pick=cand.slice(0,25); const free=[];
+  if(pick.length<25){ for(const a of shuffle(pool.filter(a=>a.dev===p.dev))){ if(pick.length>=25) break; pick.push(a); free.push(a.pid); } }
   pick=shuffle(pick);
   pick.forEach(a=>T.use.set(a.pid,(T.use.get(a.pid)||0)+1));
-  p.board=pick.map(a=>a.pid); p.free=free; p.marked=new Set(free?[free]:[]); p.place=0; p.wrongUntil=0;
+  p.board=pick.map(a=>a.pid); p.free=free; p.marked=new Set(free); p.place=0; p.wrongUntil=0;
 }
 function countLines(p){ if(!p.board) return 0; return LINES.filter(l=>l.every(i=>p.marked.has(p.board[i]))).length; }
 function onClaim(p,d){
@@ -940,7 +953,7 @@ function onClaim(p,d){
   if(nameMatch(d.text,a.name,T.S.typo)){
     p.marked.add(d.pid); a.bOk++; const lines=countLines(p); const out={ok:true,name:a.name,lines};
     if(lines>=T.S.lines&&!p.place){ p.place=T.finishers.length+1; T.finishers.push(p.cid); out.place=p.place;
-      bcast({t:'finish',place:p.place,name:p.name}); sndFanfare(); FX.burst(120); toast('🎉 '+p.name+' got BINGO! ('+ordinal(p.place)+')',4000);
+      bcast({t:'finish',place:p.place,name:dname(p),cid:p.cid}); sndFanfare(); FX.burst(120); toast('🎉 '+dname(p)+' got BINGO! ('+ordinal(p.place)+')',4000);
       if(T.finishers.length>=T.S.places&&!T.ending){ T.ending=true; T.locked=true; setTimeout(()=>bcast({t:'lock'}),600); setTimeout(finishBingo,3500); } }
     reply(out); saveState();
   } else {
@@ -954,11 +967,11 @@ function renderBingo(){
   $('bingo-rule').textContent='First to complete '+(need===12?'the full card':need+' line'+(need>1?'s':''))+' wins · game stops after '+ordinal(T.S.places)+' place';
   const f=$('finishers'); f.innerHTML='';
   for(let i=0;i<T.S.places;i++){ const p=T.players.get(T.finishers[i]); if(T.finishers.length<(T.finShown||0)) T.finShown=0; const d=document.createElement('div'); d.className='fcard'+(p?' got':'')+(p&&i>=(T.finShown||0)?' new':'');
-    d.innerHTML=(['🥇','🥈','🥉'][i]||'🎖️')+' '+ordinal(i+1)+'<span class="nm">'+(p?esc(p.name):'…')+'</span>'; f.appendChild(d); }
+    d.innerHTML=(['🥇','🥈','🥉'][i]||'🎖️')+' '+ordinal(i+1)+'<span class="nm">'+(p?esc(dname(p)):'…')+'</span>'; f.appendChild(d); }
   T.finShown=T.finishers.length;
   const rows=playerList().map(p=>({p,lines:countLines(p),marks:p.marked.size})).sort((x,y)=>(y.p.place?1:0)-(x.p.place?1:0)||(x.p.place&&y.p.place?x.p.place-y.p.place:0)||y.lines-x.lines||y.marks-x.marks||x.p.name.localeCompare(y.p.name));
   $('bingo-tiles').innerHTML=rows.map(r=>{ const pct=Math.min(100,r.lines/need*100);
-    return '<div class="ptile '+(r.p.place?'ok':'')+(r.p.online?'':' offline')+'" style="background-image:linear-gradient(90deg,rgba(141,255,58,.28) '+pct+'%,transparent '+pct+'%)">'+(r.p.place?['🥇','🥈','🥉'][r.p.place-1]||'🎖️':'')+' '+esc(r.p.name)+'<span class="s">'+r.lines+' / '+(need===12?12:need)+' lines · '+r.marks+' squares</span></div>'; }).join('');
+    return '<div class="ptile '+(r.p.place?'ok':'')+(r.p.online?'':' offline')+'" style="background-image:linear-gradient(90deg,rgba(141,255,58,.28) '+pct+'%,transparent '+pct+'%)">'+(r.p.place?['🥇','🥈','🥉'][r.p.place-1]||'🎖️':'')+' '+esc(dname(r.p))+'<span class="s">'+r.lines+' / '+(need===12?12:need)+' lines · '+r.marks+' squares</span></div>'; }).join('');
 }
 function finishBingo(){
   if(T.phase!=='bingo') return;
@@ -967,7 +980,7 @@ function finishBingo(){
   bcastState(); saveState(); renderAll();
 }
 function computeBingoResults(){
-  const rows=playerList().map(p=>({p,name:p.name,lines:countLines(p),marks:p.marked.size,place:p.place||0}));
+  const rows=playerList().map(p=>({p,name:dname(p),lines:countLines(p),marks:p.marked.size,place:p.place||0}));
   rows.sort((a,b)=>(a.place&&b.place)?a.place-b.place:a.place?-1:b.place?1:(b.lines-a.lines||b.marks-a.marks||a.name.localeCompare(b.name)));
   rows.forEach((r,i)=>{ if(r.place) r.rank=r.place; else { const q=rows[i-1]; r.rank=(q&&!q.place&&q.lines===r.lines&&q.marks===r.marks)?q.rank:i+1; } });
   const pics=T.order.map(cid=>T.players.get(cid)).filter(Boolean).map((a,i)=>({a,n:i+1,ok:a.bOk||0,bad:a.bBad||0}));
@@ -976,7 +989,7 @@ function computeBingoResults(){
 }
 function resultForBingo(p){
   const R=T.results; const row=R.rows.find(r=>r.p===p);
-  const list=(p.board||[]).map((pid,i)=>{ const a=T.byPid.get(pid); return {pid,n:i+1,name:a?a.name:'?',mine:pid===p.free,guess:'',ok:p.marked.has(pid)}; });
+  const list=(p.board||[]).map((pid,i)=>{ const a=T.byPid.get(pid); return {pid,n:i+1,name:a?a.name:'?',mine:(p.free||[]).includes(pid),guess:'',ok:p.marked.has(pid)}; });
   return {t:'results',mode:'bingo',place:p.place||0,lines:row?row.lines:0,need:T.S.lines,marks:p.marked.size,rank:row?row.rank:0,of:R.rows.length,list};
 }
 function renderBingoResults(R){
@@ -1017,11 +1030,11 @@ function computeResults(){
   const typo=!!T.S.typo;
   const pics=T.order.map(cid=>T.players.get(cid)).filter(p=>p&&p.pic);
   const picRes=pics.map((a,i)=>({a,n:i+1,guessers:[],wrong:0}));
-  const rows=[...T.players.values()].map(p=>({p,name:p.name,score:0,possible:0}));
+  const rows=playerList().map(p=>({p,name:dname(p),score:0,possible:0}));
   for(const row of rows){ pics.forEach((a,i)=>{
-    if(a===row.p) return; row.possible++;
+    if(a.dev===row.p.dev) return; row.possible++;
     const g=row.p.guesses[a.pid]; if(!g||!norm(g)) return;
-    if(nameMatch(g,a.name,typo)){ row.score++; picRes[i].guessers.push(row.p.name); } else picRes[i].wrong++;
+    if(nameMatch(g,a.name,typo)){ row.score++; picRes[i].guessers.push(row.name); } else picRes[i].wrong++;
   }); }
   rows.sort((x,y)=>y.score-x.score||x.name.localeCompare(y.name));
   let rk=0,last=null; rows.forEach((r,i)=>{ if(r.score!==last){ rk=i+1; last=r.score; } r.rank=rk; });
@@ -1031,7 +1044,7 @@ function computeResults(){
 }
 function resultFor(p){
   const R=T.results; const row=R.rows.find(r=>r.p===p);
-  const list=T.order.map((cid,i)=>{ const a=T.players.get(cid); if(!a) return null; const mine=a===p; const g=p.guesses[a.pid]||'';
+  const list=T.order.map((cid,i)=>{ const a=T.players.get(cid); if(!a) return null; const mine=a.dev===p.dev; const g=p.guesses[a.pid]||'';
     return {pid:a.pid,n:i+1,name:a.name,mine,guess:g,ok:!mine&&!!g&&nameMatch(g,a.name,T.S.typo)}; }).filter(Boolean);
   return {t:'results',score:row?row.score:0,possible:row?row.possible:0,rank:row?row.rank:0,of:R.rows.length,list};
 }
@@ -1048,6 +1061,7 @@ function renderAll(){
   $('steps').innerHTML=names.map((n,i)=>'<span class="step '+(i===idx?'on':i<idx?'done':'')+'">'+(i<idx?'✓ ':(i+1)+'. ')+n+'</span>').join('');
   $('lobby-prompt').textContent=T.S.prompt; $('draw-prompt').textContent=T.S.prompt;
   $('lobby-mode').textContent=bingo?'🎱 Bingo: first to complete '+(T.S.lines===12?'the full card':T.S.lines+' line'+(T.S.lines>1?'s':''))+' · stops after '+ordinal(T.S.places)+' place · needs 25+ drawings':'🎨 Draw & Guess';
+  if(T.S.duo) $('lobby-mode').textContent+=' · 👥 2 drawers per iPad allowed';
   $('btn-start-guess').textContent=bingo?'Start bingo ▶':'Start guessing ▶';
   renderLobbyBits(); updateDrawCount();
   if(ph==='draw') renderDrawTiles();
@@ -1056,7 +1070,7 @@ function renderAll(){
   if(ph==='results') renderResults();
   tickTimer();
 }
-function playerList(){ return [...T.players.values()]; }
+function playerList(){ return [...T.players.values()].filter(p=>!p.sub); }
 function renderLobbyBits(){
   if(!T.started) return;
   const ps=playerList(); $('join-count').textContent=ps.length;
@@ -1065,20 +1079,22 @@ function renderLobbyBits(){
   ps.forEach((p,i)=>{ const c=document.createElement('div'); const dup=cnt[norm(p.name).split(' ')[0]]>1;
     c.className='pchip'+(p.online?'':' offline')+(dup?' dup':''); c.style.setProperty('--c1','hsl('+(i*47%360)+' 85% 55%)'); c.style.setProperty('--c2','hsl('+((i*47+50)%360)+' 85% 45%)');
     c.title=dup?'Another player has the same first name: add a last initial':'';
-    c.innerHTML='<span>'+esc(p.name)+'</span>'+(dup?'<span class="st">⚠️</span>':'')+'<span class="x" title="Remove">✕</span>';
-    c.querySelector('.x').onclick=ev=>{ ev.stopPropagation(); if(confirm('Remove '+p.name+' from the room?')){ sendTo(p,{t:'kick'}); T.players.delete(p.cid); saveState(); renderAll(); } };
+    c.innerHTML='<span>'+esc(dname(p))+'</span>'+(dup?'<span class="st">⚠️</span>':'')+'<span class="x" title="Remove">✕</span>';
+    c.querySelector('.x').onclick=ev=>{ ev.stopPropagation(); if(confirm('Remove '+dname(p)+' from the room?')){ sendTo(p,{t:'kick'}); T.players.delete(p.cid); T.players.delete(p.cid+'~2'); saveState(); renderAll(); } };
     el.appendChild(c); });
   if(!ps.length) el.innerHTML='<span class="hint">Waiting for players… scan the QR code 📱</span>';
   if(T.phase==='draw') renderDrawTiles();
 }
 function updateDrawCount(){
-  if(T.phase!=='draw') return; const ps=playerList(); const done=ps.filter(p=>p.pic).length;
-  $('draw-count').textContent=done+' of '+ps.length+' drawings sent';
-  $('draw-meter').style.width=(ps.length?done/ps.length*100:0)+'%';
+  if(T.phase!=='draw') return; const all=[...T.players.values()]; const done=all.filter(p=>p.pic).length;
+  $('draw-count').textContent=done+' of '+all.length+' drawings sent';
+  $('draw-meter').style.width=(all.length?done/all.length*100:0)+'%';
   $('draw-need').textContent=T.S.mode==='bingo'?'Bingo needs at least '+BINGO_MIN+' drawings ('+done+' so far)':'';
 }
 function renderDrawTiles(){
-  $('draw-tiles').innerHTML=playerList().map(p=>'<div class="ptile '+(p.pic?'ok':'')+(p.online?'':' offline')+'">'+esc(p.name)+'<span class="s">'+(p.pic?'✅ sent':(p.online?'✏️ drawing…':'📴 offline'))+'</span></div>').join('');
+  $('draw-tiles').innerHTML=playerList().map(p=>{ const q=getSub(p); const st=x=>x.pic?'✅':'✏️'; const ok=p.pic&&(!q||q.pic);
+    const status=q?(ok?'✅✅ both sent':st(p)+' + '+st(q)+(p.online?' drawing…':' 📴 offline')):(p.pic?'✅ sent':(p.online?'✏️ drawing…':'📴 offline'));
+    return '<div class="ptile '+(ok?'ok':'')+(p.online?'':' offline')+'">'+esc(dname(p))+'<span class="s">'+status+'</span></div>'; }).join('');
 }
 function updateGuessCount(){
   if(T.phase!=='guess') return; const ps=playerList(); const d=ps.filter(p=>p.done).length;
@@ -1178,13 +1194,13 @@ function renderPodium(body,R){
 function initStudent(code){
   hide('landing'); show('student');
   const S={code,cid:null,name:'',peer:null,conn:null,joined:false,kicked:false,tries:0,
-    phase:'lobby',round:0,prompt:'',submitted:false,dirty:false,picData:null,pids:[],mine:null,pics:{},guesses:{},done:false,locked:false,
+    phase:'lobby',round:0,prompt:'',submitted:false,dirty:false,picData:null,pids:[],mine:[],pics:{},guesses:{},cur:0,has2:false,name2:'',slots:[{},{}],duo:false,done:false,locked:false,
     left:null,leftAt:0,timeUp:false,results:null,strokes:[],board:[],marked:new Set(),names:{},place:0,need:4,waitMs:5000,waitUntil:0};
   S.cid=lsGet('gw_cid_'+code)||('c'+rid(12)); lsSet('gw_cid_'+code,S.cid);
   S.name=lsGet('gw_name')||'';
   const SAVE='gw_s_'+code;
-  try{ const o=JSON.parse(lsGet(SAVE)||'null'); if(o&&o.cid===S.cid){ S.round=o.round||0; S.strokes=o.strokes||[]; S.submitted=!!o.submitted; S.picData=o.picData||null; S.guesses=o.guesses||{}; S.done=!!o.done; S.joinedBefore=!!o.joined; if(o.name) S.name=o.name; } }catch(e){}
-  function save(){ try{ const o={cid:S.cid,round:S.round,strokes:S.strokes,submitted:S.submitted,picData:S.picData,guesses:S.guesses,done:S.done,name:S.name,joined:S.joined||S.joinedBefore}; const s=JSON.stringify(o); if(s.length<4000000) lsSet(SAVE,s); else { o.strokes=[]; lsSet(SAVE,JSON.stringify(o)); } }catch(e){} }
+  try{ const o=JSON.parse(lsGet(SAVE)||'null'); if(o&&o.cid===S.cid){ S.round=o.round||0; S.strokes=o.strokes||[]; S.submitted=!!o.submitted; S.picData=o.picData||null; S.guesses=o.guesses||{}; S.done=!!o.done; S.joinedBefore=!!o.joined; if(o.name) S.name=o.name; if(Array.isArray(o.slots)) S.slots=o.slots; S.cur=o.cur||0; S.has2=!!o.has2; S.name2=o.name2||''; } }catch(e){}
+  function save(){ try{ S.slots[S.cur]={strokes:S.strokes,submitted:S.submitted,dirty:S.dirty,picData:S.picData}; const o={cid:S.cid,round:S.round,strokes:S.strokes,submitted:S.submitted,picData:S.picData,guesses:S.guesses,done:S.done,name:S.name,joined:S.joined||S.joinedBefore,slots:S.slots,cur:S.cur,has2:S.has2,name2:S.name2}; const s=JSON.stringify(o); if(s.length<4000000) lsSet(SAVE,s); else { o.strokes=[]; o.slots=o.slots.map(x=>Object.assign({},x,{strokes:[]})); lsSet(SAVE,JSON.stringify(o)); } }catch(e){} }
   let saveT=0; const saveSoon=()=>{ clearTimeout(saveT); saveT=setTimeout(save,300); };
   const send=o=>{ try{ if(S.conn&&S.conn.open) S.conn.send(o); }catch(e){} };
 
@@ -1221,7 +1237,7 @@ function initStudent(code){
   const end=e=>{ if(!cur) return; S.strokes.push(cur); cur=null; S.dirty=true; saveSoon(); updateSendBtn(); };
   cv.addEventListener('pointerup',end); cv.addEventListener('pointercancel',end); cv.addEventListener('pointerleave',end);
   ['touchstart','touchmove'].forEach(ev=>cv.addEventListener(ev,e=>e.preventDefault(),{passive:false}));
-  function applyDrawLock(){ $('cv-lock').classList.toggle('hidden',!(S.timeUp&&S.phase==='draw')); }
+  function applyDrawLock(){ $('cv-lock').classList.toggle('hidden',!(S.timeUp&&S.phase==='draw')); updateAdd2(); }
   function buildTools(){
     const cl=$('colors'); cl.innerHTML=''; COLORS.forEach(c=>{ const b=document.createElement('button'); b.className='sw'+(c===color&&tool==='pen'?' on':''); b.style.background=c; b.setAttribute('aria-label','colour '+c);
       b.onclick=()=>{ color=c; tool='pen'; buildTools(); }; cl.appendChild(b); });
@@ -1231,36 +1247,59 @@ function initStudent(code){
     const un=document.createElement('button'); un.className='tbtn'; un.textContent='↩️ Undo'; un.onclick=()=>{ if(drawingLocked()) return; S.strokes.pop(); S.dirty=true; redraw(); saveSoon(); updateSendBtn(); }; tl.appendChild(un);
     const cl2=document.createElement('button'); cl2.className='tbtn'; cl2.textContent='🗑️ Clear'; cl2.onclick=()=>{ if(drawingLocked()||!S.strokes.length) return; if(confirm('Clear your whole drawing?')){ S.strokes=[]; S.dirty=true; redraw(); saveSoon(); updateSendBtn(); } }; tl.appendChild(cl2);
   }
-  function updateSendBtn(){ const b=$('btn-send'); const has=S.strokes.length>0; b.disabled=!has||drawingLocked(); b.textContent=S.submitted&&!S.dirty?'Sent ✅ (tap to send again)':'Send drawing ✅'; }
+  function updateAdd2(){ $('btn-add2').classList.toggle('hidden',!(S.duo&&S.phase==='draw'&&!S.has2&&!S.timeUp&&S.cur===0)); }
+  function updateSendBtn(){ const b=$('btn-send'); const has=S.strokes.length>0; b.disabled=!has||drawingLocked(); b.textContent=S.submitted&&!S.dirty?'Sent ✅ (tap to send again)':'Send drawing ✅'; updateAdd2(); }
+  // two people can share this iPad: slot 0 = first drawer, slot 1 = second drawer. The live S.strokes/S.submitted/S.picData always belong to the current slot.
+  function curNameInput(){ const v=cleanName($('d-name').value); if(S.cur===0){ if(v) S.name=v; } else S.name2=v; }
+  function pd(i){ return i===S.cur?S.picData:(S.slots[i]||{}).picData; }
+  function switchSlot(n){
+    if(n===S.cur) return; curNameInput();
+    S.slots[S.cur]={strokes:S.strokes,submitted:S.submitted,dirty:S.dirty,picData:S.picData};
+    const t=S.slots[n]||{}; S.cur=n; S.strokes=t.strokes||[]; S.submitted=!!t.submitted; S.dirty=!!t.dirty; S.picData=t.picData||null; cur=null;
+    $('d-name').value=(n===0?S.name:S.name2)||''; $('d-name-label').textContent=n===0?'Your real name (so others can guess you)':'Second person: your real name (so others can guess you)';
+    redraw(); renderSlotbar(); updateSendBtn(); save();
+  }
+  function renderSlotbar(){
+    ['slotbar-d','slotbar-s'].forEach(id=>{ const el=$(id); if(!el) return; el.innerHTML=''; el.classList.toggle('hidden',!S.has2); if(!S.has2) return;
+      [0,1].forEach(i=>{ const b=document.createElement('button'); b.className='tbtn'+(S.cur===i?' on':''); const nm=i===0?S.name:S.name2; b.textContent=(i?'2️⃣ ':'1️⃣ ')+(nm||(i?'Second drawer':'First drawer'));
+        b.onclick=()=>{ if(S.phase!=='draw') return; switchSlot(i); go('s-draw'); }; el.appendChild(b); }); });
+  }
+  function resendPics(d){   // the teacher lost a picture (e.g. teacher refreshed): send our saved copy again
+    if(d.needPic&&pd(0)) send({t:'pic',data:pd(0),name:S.name,round:S.round});
+    if(d.needPic2&&pd(1)) send({t:'pic',slot:2,data:pd(1),name:S.name2,round:S.round});
+  }
   function submit(){
     const name=cleanName($('d-name').value);
     if(!S.strokes.length){ toast('Draw something first! 🎨'); return false; }
     if(!name){ toast('Type your real name so others can guess you 🙂'); $('d-name').focus(); return false; }
-    S.name=name; lsSet('gw_name',name);
+    if(S.cur===0){ S.name=name; lsSet('gw_name',name); } else S.name2=name;
     redraw(); let data=cv.toDataURL('image/jpeg',.82); if(data.length>400000) data=cv.toDataURL('image/jpeg',.6);
     S.picData=data; S.submitted=true; S.dirty=false; save(); setChip();
-    send({t:'pic',data,name,round:S.round}); updateSendBtn(); return true;
+    send({t:'pic',data,name,round:S.round,slot:S.cur?2:1}); updateSendBtn(); renderSlotbar(); return true;
   }
-  function autoSubmit(){ // time up / teacher asked: send what we have, even if the student forgot to press the button
+  function autoSubmit(){ // time up / teacher asked: send what we have (both drawers), even if the student forgot to press the button
     if(S.phase!=='draw'&&S.phase!=='lobby') return;
-    if(S.strokes.length&&(!S.submitted||S.dirty)){ const n=cleanName($('d-name').value)||S.name; if(n){ $('d-name').value=n; if(submit()&&S.screen==='s-draw') go('s-sent'); } else toast('Type your name and press Send!',6000); }
-    else if(S.submitted&&S.screen==='s-draw') go('s-sent');
+    const orig=S.cur; const order=S.has2?[1-orig,orig]:[orig];
+    order.forEach(i=>{ if(i!==S.cur) switchSlot(i);
+      if(S.strokes.length&&(!S.submitted||S.dirty)){ const n=cleanName($('d-name').value)||(S.cur===0?S.name:S.name2); if(n){ $('d-name').value=n; submit(); } else toast('Type your name and press Send!',6000); } });
+    if(S.screen==='s-draw'&&S.submitted) go('s-sent');
   }
   $('btn-send').onclick=()=>{ ac(); if(submit()) go('s-sent'); };
   $('btn-edit-draw').onclick=()=>{ if(S.phase!=='draw') return; go('s-draw'); updateSendBtn(); };
-  $('d-name').addEventListener('input',()=>{ S.name=cleanName($('d-name').value); });
-  $('d-name').addEventListener('change',()=>{ const n=cleanName($('d-name').value); if(n){ S.name=n; lsSet('gw_name',n); save(); send({t:'name',name:n}); setChip(); } });
+  $('d-name').addEventListener('input',()=>{ if(S.cur===0) S.name=cleanName($('d-name').value); else S.name2=cleanName($('d-name').value); });
+  $('d-name').addEventListener('change',()=>{ const n=cleanName($('d-name').value); if(n){ if(S.cur===0){ S.name=n; lsSet('gw_name',n); setChip(); } else S.name2=n; save(); send({t:'name',name:n,slot:S.cur?2:1}); renderSlotbar(); } });
+  $('btn-add2').onclick=()=>{ if(S.phase!=='draw'||S.has2||S.timeUp) return; ac(); S.has2=true; send({t:'duo'}); switchSlot(1); go('s-draw'); toast('Pass the iPad! Second person: draw and type your name ✏️',5000); renderSlotbar(); updateSendBtn(); };
   buildTools();
 
   // ---------- guessing ----------
   function renderGuessList(){
     const host=$('g-list'); host.innerHTML='';
     S.pids.forEach((pid,i)=>{
-      const mine=pid===S.mine; const c=document.createElement('div'); c.className='gcard'+(mine?' mine':'');
+      const mine=(S.mine||[]).includes(pid); const c=document.createElement('div'); c.className='gcard'+(mine?' mine':'');
       const pic=document.createElement('div'); pic.className='pic'+(S.pics[pid]?'':' missing'); pic.dataset.pid=pid;
       if(S.pics[pid]){ const im=document.createElement('img'); im.src=S.pics[pid]; im.alt='Picture '+(i+1); pic.appendChild(im); } else pic.textContent='⏳ loading…';
       const n=document.createElement('div'); n.className='num'; n.textContent=i+1; pic.appendChild(n); c.appendChild(pic);
-      if(mine){ const o=document.createElement('div'); o.className='own'; o.textContent='⭐ This one is yours!'; c.appendChild(o); }
+      if(mine){ const o=document.createElement('div'); o.className='own'; o.textContent='⭐ Drawn on your iPad!'; c.appendChild(o); }
       else { const inp=document.createElement('input'); inp.className='text'; inp.placeholder='Who drew picture '+(i+1)+'?'; inp.autocomplete='off'; inp.autocapitalize='words'; inp.maxLength=30; inp.value=S.guesses[pid]||''; inp.disabled=S.locked;
         if(inp.value) c.classList.add('filled'); let t=0;
         const push=()=>{ S.guesses[pid]=inp.value; c.classList.toggle('filled',!!inp.value.trim()); saveSoon(); send({t:'guess',pid,text:inp.value,round:S.round}); };
@@ -1331,33 +1370,35 @@ function initStudent(code){
 
   // ---------- messages from the teacher ----------
   function resetRound(round){
-    S.round=round; S.strokes=[]; S.submitted=false; S.dirty=false; S.picData=null; S.pids=[]; S.mine=null; S.pics={}; S.guesses={}; S.done=false; S.locked=false; S.timeUp=false; S.results=null; S.board=[]; S.marked=new Set(); S.names={}; S.place=0; S.waitUntil=0;
-    redraw(); applyDrawLock(); save();
+    S.round=round; S.strokes=[]; S.submitted=false; S.dirty=false; S.picData=null; S.pids=[]; S.mine=[]; S.pics={}; S.guesses={}; S.done=false; S.locked=false; S.timeUp=false; S.results=null; S.board=[]; S.marked=new Set(); S.names={}; S.place=0; S.waitUntil=0;
+    S.cur=0; S.has2=false; S.name2=''; S.slots=[{},{}]; $('d-name').value=S.name||''; $('d-name-label').textContent='Your real name (so others can guess you)';
+    redraw(); applyDrawLock(); renderSlotbar(); save();
   }
   function onData(d){
     if(d.t==='pong') return;
     if(d.t==='state'){
       if(d.needName){ return; }
       if(d.round!=null&&d.round!==S.round){ resetRound(d.round); }
-      S.prompt=d.prompt||''; S.phase=d.phase; S.locked=!!d.locked;
+      S.prompt=d.prompt||''; S.phase=d.phase; S.locked=!!d.locked; S.duo=!!d.duo;
       if(d.name&&!S.name){ S.name=d.name; }
       $('d-prompt').textContent=S.prompt; setChip(); setLeft(d.left);
       if(S.phase==='lobby'){ if(S.screen!=='s-wait') go('s-wait'); }
       else if(S.phase==='draw'){
         S.timeUp=false; applyDrawLock();
-        if(!$('d-name').value) $('d-name').value=S.name||'';
-        if(d.needPic&&S.picData){ send({t:'pic',data:S.picData,name:S.name,round:S.round}); }
+        if(!$('d-name').value) $('d-name').value=(S.cur===0?S.name:S.name2)||'';
+        renderSlotbar();
+        resendPics(d);
         if(S.screen!=='s-draw'&&S.screen!=='s-sent') go(S.submitted?'s-sent':'s-draw');
         updateSendBtn();
         if(S.left!=null&&S.left<=0){ S.timeUp=true; applyDrawLock(); }
       }
       else if(S.phase==='guess'){
-        if(d.needPic&&S.picData){ send({t:'pic',data:S.picData,name:S.name,round:S.round}); }
-        S.pids=d.pids||[]; S.mine=d.mine||null; if(d.done) S.done=true;
+        resendPics(d);
+        S.pids=d.pids||[]; S.mine=d.mine||[]; if(d.done) S.done=true;
         if(S.screen!=='s-guess'){ go('s-guess'); } renderGuessList(); setGuessLocked(S.locked);
       }
       else if(S.phase==='bingo'){
-        if(d.needPic&&S.picData){ send({t:'pic',data:S.picData,name:S.name,round:S.round}); }
+        resendPics(d);
         S.board=d.board||[]; S.marked=new Set(d.marked||[]); S.names=d.names||{}; S.place=d.place||0; S.need=d.need||4; S.waitMs=d.wait!=null?d.wait:5000;
         if(S.screen!=='s-bingo') go('s-bingo'); renderBoard();
       }
@@ -1372,7 +1413,7 @@ function initStudent(code){
       else if(d.reason==='closed'){ toast('The game isn’t accepting answers right now'); }
       else { S.waitUntil=Date.now()+(d.wait||0); toast('❌ Not quite!'+(d.wait?' Wait '+Math.ceil(d.wait/1000)+'s before your next try.':' Try again.')); renderBoard(); }
     }
-    else if(d.t==='finish'){ if(!(S.place&&d.name===S.name)) toast('🎉 '+d.name+' got BINGO! ('+ordinalS(d.place)+')',4000); }
+    else if(d.t==='finish'){ if(!(S.place&&d.cid===S.cid)) toast('🎉 '+d.name+' got BINGO! ('+ordinalS(d.place)+')',4000); }
     else if(d.t==='results'){ showResults(d); }
     else if(d.t==='kick'){ S.kicked=true; try{S.peer&&S.peer.destroy();}catch(e){} lsDel(SAVE); $('removed').classList.remove('hidden'); }
     else if(d.t==='end'){ S.kicked=true; try{S.peer&&S.peer.destroy();}catch(e){} lsDel(SAVE); $('removed-h').textContent='The game is over'; $('removed-p').textContent='Thanks for playing! Ask your teacher to start a new room.'; $('removed').classList.remove('hidden'); }

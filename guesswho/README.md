@@ -32,3 +32,6 @@ Capitals, spaces, accents and punctuation are ignored. "Ella" matches "Ella Smit
 - Teacher can refresh the page and keep the room; students reconnect and re-send their drawing and guesses.
 - Drawings are 800x600 JPEGs; students receive smaller copies of the others' pictures.
 - TURN server option for strict school Wi-Fi is at the top of the script, same as Buzzer.
+
+## Two drawers per iPad
+With 'Let two students share one iPad' ticked (on by default), after the first person sends their drawing a **➕ Pass the iPad** button appears. The second person draws and types their own name. Each drawing is its own picture; the iPad guesses (and plays Bingo) as one team and never has to guess its own two pictures. Teacher screens show the pair as 'Ella & Ben'.
