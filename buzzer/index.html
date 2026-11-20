@@ -1029,7 +1029,7 @@ function updateLockUI(){
   const w=$('status-word'); const po=T.playoff; const txt=T.locked?(po?'⚔️ PLAYOFF READY':'🔒 BUZZERS LOCKED'):(po&&po.state===2?'⚔️ PLAYOFF BUZZ!':'🟢 BUZZ NOW!');
   if(w.dataset.s!==txt){ w.dataset.s=txt; motion(w,txt,T.locked?{mono:'#ff8a93'}:{hue:90}); }
 }
-/* ---- one-round bans (0 points + wrong answer) and playoff rounds ----
+/* ---- one-round bans (any wrong answer: −1 point, scores may go negative) and playoff rounds ----
    t.ban: 0 = free, 1 = banned from the NEXT round, 2 = sitting out the round that is running now.
    T.playoff: null, or {ids:Set of cids, state:1 armed (waiting for LIVE) | 2 this round is the playoff}. */
 function eligOf(t){
@@ -1112,7 +1112,7 @@ function makeCard(t){
   f.addEventListener('pointerleave',()=>{ c.style.setProperty('--rx','0deg'); c.style.setProperty('--ry','0deg'); });
   c.querySelector('.emo').addEventListener('click',()=>{ playSound(t.sound,t.rec); const r=c.getBoundingClientRect(); burst(r.left+r.width/2,r.top+r.height/3,[MASCOT_BY[t.emoji].c1,MASCOT_BY[t.emoji].c2,'#fff'],30,.7,avText(t.emoji)); });
   c.querySelector('.plus').onclick=e=>award(t.cid,T.pts,e.clientX,e.clientY);
-  c.querySelector('.minus').onclick=e=>award(t.cid,-T.pts,e.clientX,e.clientY);
+  c.querySelector('.minus').onclick=e=>award(t.cid,-1,e.clientX,e.clientY);
   c.querySelector('.rm').onclick=()=>{ if(confirm('Remove '+t.name+' from the game?')) removeTeam(t.cid); };
   return c;
 }
@@ -1130,7 +1130,7 @@ function renderBoard(){
     const c=t.el; setTeamColors(c,t.emoji);
     setAv(c.querySelector('.emo'),t.emoji,t.photo); c.querySelector('.nm').textContent=t.name;
     const sc=c.querySelector('.sc'); const old=sc.textContent; if(old!==String(t.score)){ sc.textContent=t.score; if(!isNew){ sc.classList.remove('pop'); void sc.offsetWidth; sc.classList.add('pop'); } }
-    c.querySelector('.plus').textContent='+'+T.pts; c.querySelector('.minus').textContent='−'+T.pts;
+    c.querySelector('.plus').textContent='+'+T.pts; c.querySelector('.minus').textContent='−1';
     c.classList.toggle('offline',!t.online);
     if(board.children[i]!==c) reorder=true;
   });
@@ -1151,11 +1151,11 @@ function updateBadges(){
 }
 function award(cid,delta,x,y){
   const t=T.teams.get(cid); if(!t) return;
-  if(delta<0&&t.score===0){          // wrong answer while already on 0: banned from the next round
-    if(t.ban===0){ t.ban=1; saveTeams(); sendElig(t); renderBoard(); toast('🚫 '+avText(t.emoji)+' '+t.name+' is on 0 and sits out the next round',4000); }
-    return;
+  if(delta<0){                       // wrong answer: lose 1 point (scores can go negative) and sit out the next round
+    const ns=t.score-1; t.score=ns; if(t.ban===0) t.ban=1; saveTeams(); sendTo(t,{t:'score',n:ns,d:-1}); sendElig(t); renderBoard();
+    toast('❌ '+avText(t.emoji)+' '+t.name+': −1 point (now '+ns+') and sits out the next round',4000); return;
   }
-  const ns=Math.max(0,t.score+delta); if(ns===t.score) return;
+  const ns=t.score+delta; if(ns===t.score) return;
   t.score=ns; saveTeams(); sendTo(t,{t:'score',n:ns,d:delta});
   const m=MASCOT_BY[t.emoji];
   if(delta>0){
@@ -1424,7 +1424,7 @@ function initStudent(code){
       if(d.round!==S.round){ S.round=d.round; S.pos=0; $('bigbtn').dataset.k=''; $('s-banner').innerHTML=''; }
       S.locked=!!d.on; updateBuzz();
     }
-    else if(d.t==='elig'){ S.elig=d.v||'ok'; $('bigbtn').dataset.k=''; updateBuzz(); if(d.next) banner('🚫 You are on 0 and sit out the next round.'); }
+    else if(d.t==='elig'){ S.elig=d.v||'ok'; $('bigbtn').dataset.k=''; updateBuzz(); if(d.next) banner('❌ Wrong answer: −1 point, and you sit out the next question.'); }
     else if(d.t==='pos'){ if(d.n>0){ const wasFirst=(d.n===1&&S.pos!==1); S.pos=d.n; updateBuzz(); if(wasFirst&&S.team) playSound(S.team.sound,S.team.rec); } else if(d.why==='locked'){ S.locked=true; updateBuzz(); } else if(d.why==='banned'||d.why==='playoff'){ S.elig=d.why; $('bigbtn').dataset.k=''; updateBuzz(); } }
     else if(d.t==='score'){ S.score=d.n||0; $('s-score').textContent=S.score; const p=$('s-scorepill'); p.classList.remove('bump'); void p.offsetWidth; p.classList.add('bump'); if(d.d>0&&S.team){ const m=MASCOT_BY[S.team.emoji]; burst(innerWidth-70,60,[m.c1,m.c2,'#ffe14a'],50,1,avText(S.team.emoji)); banner('⭐ +'+d.d+' points!'); } if(S.team){ S.team.score=S.score; lsSet('buzzer_team_'+code,JSON.stringify(S.team)); } }
     else if(d.t==='first'){ if(d.cid!==S.cid) banner(avText(d.emoji)+' '+d.name+' buzzed first!'); }
